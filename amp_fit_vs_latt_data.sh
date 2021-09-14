@@ -11,7 +11,7 @@
 # FV_spec
 
 # Check the number of arguments
-if [ "$#" -lt 1s ]; then
+if [ "$#" -gt 0 ]; then
     echo "Usage is: $0"
     exit 1
 fi

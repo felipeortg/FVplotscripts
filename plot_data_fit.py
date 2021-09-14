@@ -51,7 +51,7 @@ for scat_devel_file in scat_irreps_data:
 
     irrep_int = spec.get_irrep_scat_devel_output(scat_devel_file)
     
-    spectrum_pred[irrep_int] = spec.read_interacting_spectrum_scatdevel("FV_spec/" + scat_devel_file)
+    spectrum_pred[irrep_int] = np.array(spec.read_interacting_spectrum_scatdevel("FV_spec/" + scat_devel_file))
 
 # Get the number of levels in each irrep
 numoflev = spec.read_Ecm_ini(dataset.Ecm_ini)
@@ -198,17 +198,26 @@ for nn, irre in enumerate(spectrum_pred):
     # Plot lattice data
     for nn,level in enumerate(spectrum_int[irre]):
         levcolor = 'k'
-        if nn >= numoflev[irre]:
+
+        try:
+            if nn >= numoflev[irre]:
+                levcolor = 'grey'
+        # if an irrep is not in the ecmdata it is because it was not used in the fit
+        except KeyError:
             levcolor = 'grey'
-                
-        plt.errorbar(level[0], level[1], yerr=level[2], 
+        
+        if nn == 0:        
+            plt.errorbar(level[0], level[1], yerr=level[2], 
+                     marker='_', mec=levcolor, fillstyle='none', ecolor=levcolor, ls='',
+                     elinewidth=1,capsize=10*errorbarwidth/0.8,label = 'data', zorder=4)
+        else:
+            plt.errorbar(level[0], level[1], yerr=level[2], 
                      marker='_', mec=levcolor, fillstyle='none', ecolor=levcolor,
                      elinewidth=1,capsize=10*errorbarwidth/0.8,zorder=4)
         
-    # Plot scat_devel interacting levels
-    for level in spectrum_pred[irre]:
-        plt.errorbar(level[0], level[1], yerr=level[2], 
-                     marker='o', mec='orangered', fillstyle='none', ecolor='orangered',elinewidth=1,capsize=5*errorbarwidth/0.8,zorder=3)        
+
+    plt.errorbar(spectrum_pred[irre][:,0], spectrum_pred[irre][:,1], yerr=spectrum_pred[irre][:,2], label = 'fit', ls='',
+                     marker='o', mec='orangered', fillstyle='none', ecolor='orangered',elinewidth=1,capsize=5*errorbarwidth/0.8,zorder=3)  
         
         
     axis.legend(loc="center right", bbox_to_anchor=(2, 0.5))
