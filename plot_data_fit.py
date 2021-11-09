@@ -135,6 +135,8 @@ spectrum_int = dict()
 
 # irreps_int = []
 
+print("Getting lattice data from: ", header)
+
 for irs in irreps_data:
     inter_file = header + irs + '/reconfit_out.txt'
 

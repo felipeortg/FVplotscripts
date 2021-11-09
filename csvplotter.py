@@ -38,13 +38,33 @@ with open(filename, 'r') as f:
             plotdata = np.array([[float(row[xcol]),float(row[ycol])] for row in data])
 
     except Exception as e:
-        print('Using x {0} and y {1} in row {2} that has {3},{4}'.format(xcol, ycol, row, row[xcol], row[ycol]))
-        print(e)
+        plotdata = []
+        with open(filename, 'r') as f2:
+            datanew = csv.reader(f2, delimiter=' ')
+            next(datanew, None)  # skip the headers
+            for nn, row in enumerate(datanew):
+                try:
+                    if len(sys.argv) > 4:
+                        plotdata.append([float(row[xcol]),float(row[ycol]),float(row[yerr]),float(row[yerr])])
+                    else:
+                        plotdata.append([float(row[xcol]),float(row[ycol]),float(row[yerr])])
+
+                except Exception as e:  
+                    print('##### WARNING:')
+                    if len(sys.argv) > 4:
+                        print('Ignoring row {2}: x {0} and y {1} +/- {4}. It reads {3}'.format(xcol, ycol, nn, row, yerr))
+                        print(e,row[xcol],row[ycol], row[yerr],'.')
+                    else:
+                        print('Ignoring row {2}: x {0} and y {1}. It reads {3}'.format(xcol, ycol, nn, row))
+                        print(e,row[xcol],row[ycol],'.')
+
+        plotdata = np.array(plotdata)
 
 if len(sys.argv) > 4:
-    plt.errorbar(plotdata[:,0], plotdata[:,1], yerr=plotdata[:,2], fmt='x',capsize=5)
+    plt.plot(plotdata[:,0], plotdata[:,1])
+    plt.fill_between(plotdata[:,0], plotdata[:,1]-plotdata[:,2],plotdata[:,1]+plotdata[:,2],alpha=0.5)
 else:
-    plt.scatter(plotdata[:,0], plotdata[:,1])
+    plt.plot(plotdata[:,0], plotdata[:,1],'.')
 
 
 plt.show()
