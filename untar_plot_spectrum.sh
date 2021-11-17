@@ -6,10 +6,9 @@
 if [ "$#" -lt 1 ]; then
     echo "Untaring"
 
-    for tarfile in `ls`
+    for tarfile in `ls *.tar`
     do
-        tar -xf $tarfile
-        rm $tarfile
+        tar -xf $tarfile  &&  rm $tarfile
         folder=`echo $tarfile | awk -F. '$0=$1'`
 	    echo $folder
         cd $folder
