@@ -60,8 +60,12 @@ with open(filename, 'r') as f:
 
         plotdata = np.array(plotdata)
 
+
+plt.axhline(0, color='k', lw=.8)
+plt.axvline(0, color='k', lw=.8)
+
 if len(sys.argv) > 4:
-    plt.plot(plotdata[:,0], plotdata[:,1])
+    plt.errorbar(plotdata[:,0], plotdata[:,1], yerr=plotdata[:,2], capsize=3, fmt='none')
     plt.fill_between(plotdata[:,0], plotdata[:,1]-plotdata[:,2],plotdata[:,1]+plotdata[:,2],alpha=0.5)
 else:
     plt.plot(plotdata[:,0], plotdata[:,1],'.')

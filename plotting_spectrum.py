@@ -153,7 +153,7 @@ axis.set_ylim(energyrange)
 axis.set_xlim(Lrange)
 plt.xticks(np.linspace(Lrange[0], Lrange[1], 3),
                 [str(Lrange[0]),str(int((Lrange[0]+Lrange[1])/2)),str(Lrange[1])])
-axis.set_xlabel(r'$L$')
+axis.set_xlabel(r'$L/a_s$')
 axis.set_ylabel(r'$a_t\,E_\text{cm}$')
 
 plt.subplots_adjust(left=0.2)
