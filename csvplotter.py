@@ -49,7 +49,7 @@ with open(filename, 'r') as f:
                     else:
                         plotdata.append([float(row[xcol]),float(row[ycol]),float(row[yerr])])
 
-                except Exception as e:  
+                except Exception as e:
                     print('##### WARNING:')
                     if len(sys.argv) > 4:
                         print('Ignoring row {2}: x {0} and y {1} +/- {4}. It reads {3}'.format(xcol, ycol, nn, row, yerr))
@@ -57,6 +57,7 @@ with open(filename, 'r') as f:
                     else:
                         print('Ignoring row {2}: x {0} and y {1}. It reads {3}'.format(xcol, ycol, nn, row))
                         print(e,row[xcol],row[ycol],'.')
+
 
         plotdata = np.array(plotdata)
 

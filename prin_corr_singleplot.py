@@ -103,6 +103,6 @@ plt.subplots_adjust(right=0.97)
 plt.subplots_adjust(bottom=0.16)
 
 if len(sys.argv) > 3 and sys.argv[3] == 's':
-    plt.savefig('singleplot.pdf',transparent=True)
+    plt.savefig('prin_corr_t0'+str(t0l)+'_state'+str(sys.argv[2])+'.pdf',transparent=True)
 else:
     plt.show()
