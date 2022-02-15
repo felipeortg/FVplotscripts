@@ -10,6 +10,12 @@ if [ "$#" -lt 1 ]; then
     exit 1
 fi
 
+if [ $1 -lt 1 ]; then
+    echo "Error: the number of levels needs to be positive"
+    exit 1
+fi
+
+
 echo "Run in the irrep with all the fits"
 irrep=${PWD##*/}
 echo "Loping over " `ls` 
@@ -17,7 +23,7 @@ echo " ------ "
 printf "  %5s %2s %2s %6s" "t0" opsi opsf "chi2/dof"
 for n in `seq $1`
 do
-    printf "%5s" $n
+    printf "%5s %5s" $n "chi2/nDoF"
 done 
 printf "\n"
 
@@ -45,8 +51,8 @@ do
 	let nm1=$1-1
 	for n in `seq 0 $nm1`
  	do
-	    enerde=`awk '{if ($1 == "0|") print $3$4}' out*`
- 	    printf "  %17s" $enerde
+	    enerde=`awk -v "stn=$n" '{if ($1 == stn"|") print $3$4,$10}' out*`
+ 	    printf "  %18s%6s" $enerde
  	done
  	printf "\n"
 
