@@ -9,44 +9,66 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import csv
-import subprocess
+# import subprocess
+import pandas as pd
 from iminuit import Minuit
 from iminuit.util import describe, make_func_code
 
 
 def read_Jack_file(filename):
     """
-    Read a Jack file from Roberts format: Ncfg Nt (0:r 1:c) 0 1
+    Read a Jack file from .jack format: Ncfg Nt (0:r 1:c) 0 1 into a pandas data frame
     """
 
     with open(filename, 'r') as f:
-        # Fill this list with all our levels
         data = csv.reader(f, delimiter=' ') #change from default comma
 
-        dataarray = []
-        count = 0
+        # Ncfg Nt (0:r 1:c) 0 1 
+        header = next(data)
+        cfgs, tl, rc, j1, j2 = header
+
+        if int(j1) != 0 or int(j2) != 1:
+            raise ValueError("Not prepared for header " + header)
+
+        cfgs = int(cfgs)
+        tl = int(tl)
+        rc = int(rc)
+
+        if rc == 0: # Real ensemble
+            datapd = pd.read_csv(filename, delimiter=' ', names=['t', 'r'], skiprows=1)
+
+        elif rc == 1: # Complex ensemble
+            datapd = pd.read_csv(filename, delimiter=' ', names=['t', 'r', 'i'], skiprows=1)
+
+        else:
+            raise ValueError("Not prepared for header " + header)
+
+
+
+        # dataarray = []
+        # count = 0
         # thiscfgdata = []
 
-        for nn, row in enumerate(data):
-            # print(row)
-            if nn == 0:
-                cfgs, tl, comp = [int(row[0]), int(row[1]), int(row[4])] 
-                print("There are {0} configs, with {1} timeslices each".format(cfgs,tl))
-                if comp != 1:
-                    print("Not prepared for {0}".format(comp))
-                    raise ValueError
-            else:
-                if count == 0:
-                    thiscfgdata = []
-                thiscfgdata.append([int(row[-2]),float(row[-1])])
-                count += 1
+        # for nn, row in enumerate(data):
+        #     # print(row)
+        #     if nn == 0:
+        #         cfgs, tl, comp = [int(row[0]), int(row[1]), int(row[4])] 
+        #         print("There are {0} configs, with {1} timeslices each".format(cfgs,tl))
+        #         if comp != 1:
+        #             print("Not prepared for {0}".format(comp))
+        #             raise ValueError
+        #     else:
+        #         if count == 0:
+        #             thiscfgdata = []
+        #         thiscfgdata.append([int(row[-2]),float(row[-1])])
+        #         count += 1
 
-                if count == tl:
-                    dataarray.append(thiscfgdata)
-                    count -= tl
+        #         if count == tl:
+        #             dataarray.append(thiscfgdata)
+        #             count -= tl
 
 
-    return cfgs, tl, dataarray
+    return cfgs, tl, datapd
 
 
 def get_mask_from_noise(filename,nrcutoff):
