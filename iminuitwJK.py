@@ -8,6 +8,9 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as colors
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import csv
 import subprocess
 from iminuit import Minuit
@@ -418,47 +421,82 @@ def print_line_model(xd, model, params_ense, factor):
     print("Model - S")
     print(np.transpose(np.array([xarr,mean_pred-error_pred])))
 
-def plot_fromfile(filename, ax1, ax2, nn=0, mask = []):
+def plot_fromfile(filename, axs, nn=0, mask = []):
+    """ Get the data from a file and plot the mean with errors,
+    The error to value ratio
+    The correlation and covariance
+    option to mask the input data
 
-    cfgs, npoints, rawdata = read_Jack_file(filename)
+    Parameters
+    ----------
+    filename : string
+        The name of the file with the data
 
-    # Assume x data is fixed
-    print("Assuming the xdata does not have configuration variation")
-    xdata = [rawdata[0][tt][0] for tt in range(npoints)]
+    axs : list
+        List of Axes Where the plots are drawn
 
-    ydata = np.array(rawdata)[:,:,1]
+    nn : integer
+       The color in the cycler for ax1
 
-    if len(mask) != 0: # masking of the data
-        for elem in mask:
-            torem = xdata.index(elem)
-            xdata.pop(torem)
-            newydata = np.delete(ydata,(torem), axis=1)
-            ydata = newydata
+    mask : list
+        x-values to be masked
 
+    Returns
+    -------
+    out : list
+        list of artists added to ax1
+    """
+
+    cfgs, npoints, xdata, ydata, xmasked, ymasked = maskdata(filename,mask )
+
+    print("---")
+    print("xdata, shape(ydata):")
     print(len(xdata),np.shape(ydata))
+    print("---")
 
     m_ydata = meanense(ydata)
 
     e_ydata = errormean(ydata, m_ydata)
 
-    ax1.set_title('Mean Data')
+    axs[0].set_title('Mean Data')
 
-    ax2.plot(xdata, e_ydata/m_ydata, 'x')
-    ax2.axhline(0,lw=1,color='k')
-    ax2.axhline(0.12,lw=1,color='k')
+    axs[1].plot(xdata, np.abs(e_ydata/m_ydata), 'x')
+    axs[1].axhline(0,lw=1,color='k')
+    axs[1].axhline(0.12,lw=1,color='k')
 
-    ax2.set_title('err/val ratio')
+    axs[1].set_title('err/val ratio')
 
     cov = covmatense(ydata, m_ydata)
     corr = cormatense(ydata, m_ydata)
 
-    plt.matshow(np.log(np.abs(cov)))
-    plt.title('Log |Covariance matrix|')
+    mat1 = axs[2].matshow(np.log(np.abs(cov)))
+    axs[2].set_title('Log |Covariance matrix|')
+    divider = make_axes_locatable(axs[2])
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    plt.colorbar(mat1, cax=cax)
 
-    plt.matshow(corr)
-    plt.title('Correlation matrix')
+    # Assume xdata is nicely ordered
+    dist = np.floor(len(xdata)/6) 
+    ticks = range(0, len(xdata), int(dist))
+    tl = [str(t+xdata[0]) for t in ticks]
 
-    return plot_data(ax1, xdata, m_ydata, e_ydata, nn)
+    axs[2].set_xticks(ticks)
+    axs[2].set_xticklabels(tl)
+    axs[2].set_yticks(ticks)
+    axs[2].set_yticklabels(tl)
+
+    mat2 = axs[3].matshow(corr, vmin=0, vmax=1)
+    axs[3].set_title('Correlation matrix')
+    divider = make_axes_locatable(axs[3])
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    plt.colorbar(mat2, cax=cax)
+
+    axs[3].set_xticks(ticks)
+    axs[3].set_xticklabels(tl)
+    axs[3].set_yticks(ticks)
+    axs[3].set_yticklabels(tl)
+
+    return plot_data(axs[0], xdata, m_ydata, e_ydata, nn)
 
 
 def plot_data(ax, xd, yd, yerr, nn, **kwargs):
