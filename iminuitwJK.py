@@ -433,7 +433,7 @@ def plot_fromfile(filename, axs, nn=0, mask = []):
         The name of the file with the data
 
     axs : list
-        List of Axes Where the plots are drawn
+        List of Axes where the plots are drawn
 
     nn : integer
        The color in the cycler for ax1

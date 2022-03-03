@@ -12,6 +12,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
+if len(sys.argv) < 2 :
+    print('Run in folder with dataset.py, and with parent folder holding this_lattice.py')
+    print('Usage is: {0} scat_devel_inter_lvl_file(s)'.format(sys.argv[0]))
+    raise Exception('Too few arguments.')
+
 # Import macros and the file with all lattice definitions
 sys.path.append('/Users/Felipe/Google Drive/bin/')
 import spectrum as spec
@@ -51,7 +56,7 @@ for scat_devel_file in scat_irreps_data:
 
     irrep_int = spec.get_irrep_scat_devel_output(scat_devel_file)
     
-    spectrum_pred[irrep_int] = np.array(spec.read_interacting_spectrum_scatdevel("FV_spec/" + scat_devel_file))
+    spectrum_pred[irrep_int] = np.array(spec.read_interacting_spectrum_scatdevel(scat_devel_file))
 
 # Get the number of levels in each irrep
 numoflev = spec.read_Ecm_ini(dataset.Ecm_ini)
@@ -151,9 +156,10 @@ for irs in irreps_data:
 
 # In[11]:
 
-
+print('Begin plots: ', list(spectrum_pred))
 for nn, irre in enumerate(spectrum_pred):
-    
+    print(irre)
+    print(spectrum_pred[irre])
     irreP = spec.label2vec(irre[:3])
     irreirrep = irre[4:]
     

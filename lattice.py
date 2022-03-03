@@ -94,7 +94,6 @@ def init_lattice_props(lattname):
             'pion_proj0xxomega_proj1' : 'brown',
             'pixxpi' : 'blue',
             'kaonxxkbar' : 'red',
-            'kaonxxkbar' : 'red',
             'kbarxxkaon' : 'red',
             'pixxomega' : 'green',
             'pixxphi' : 'brown'
@@ -132,5 +131,5 @@ def init_lattice_props(lattname):
         free_file_sca = '/Users/Felipe/Google Drive/Documents/JLab/time_like_form_factor/scattering_24_a856/free_levels/free_levels_scattering_devel_mod.txt'
 
     else:
-        print('lattname')
+        print(lattname)
         raise Exception('This lattice properties are not in here')

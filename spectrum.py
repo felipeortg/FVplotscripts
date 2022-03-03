@@ -6,6 +6,7 @@
 # Some macros to build spectrum plots
 
 import numpy as np
+import os
 
 def label2vec(ks):
     vec = []
@@ -329,6 +330,8 @@ def read_free_spectrum_scatdevel(filename):
     return two_mesons
 
 def get_irrep_scat_devel_output(file):
+
+    file = os.path.basename(file)
 
     name, ext = file.split('.')
 
