@@ -33,9 +33,9 @@ def read_Jack_file(filename):
         for nn, row in enumerate(data):
             # print(row)
             if nn == 0:
-                cfgs, tl, comp = [int(row[0]), int(row[1]), int(row[4])] 
+                cfgs, tl, comp = [int(row[0]), int(row[1]), int(row[2])] 
                 print("There are {0} configs, with {1} timeslices each".format(cfgs,tl))
-                if comp != 1:
+                if comp != 0:
                     print("Not prepared for {0}".format(comp))
                     raise ValueError
             else:
@@ -219,6 +219,42 @@ def ensemble_op(fun, ensemble, jackknifed = False):
     enseres = fun(ensedown)
 
     return jackup(enseres)
+
+def two_ensemble_op(operation, ensemble1, ensemble2, jackknifed = False):
+    """Do a time-dependant operation(ens1, ens2) with jackknife statistics
+    always return the upscale ensemble, but can receive a downscaled ensembles """
+
+    if not jackknifed:
+        ensedown1 = jackdown(ensemble1)
+        ensedown2 = jackdown(ensemble2)
+    else:
+        ensedown1 = ensemble1
+        ensedown2 = ensemble2
+
+    op_ense = operation(ensedown1, ensedown2)
+
+    return jackup(op_ense)
+
+
+def td_ensemble_op(td_fun, operation, xd, ensemble, jackknifed = False):
+    """Do a time-dependant operation(fun(t), ens(t)) over an ensemble with jackknife statistics
+    always return the upscale ensemble, but can receive a downscaled ensemble """
+
+    if not jackknifed:
+        ensedown = jackdown(ensemble)
+    else:
+        ensedown = ensemble
+
+    td_factor = [td_fun(t) for t in xd]
+
+    cfgs = np.shape(ensedown)[0]
+    
+    factorjk = np.array([td_factor for i in range(cfgs)])
+
+    op_ense = operation(factorjk, ensedown)
+
+    return jackup(op_ense)
+        
 
 # Example of an ensemble operation
 # def expmult(jkarray):
