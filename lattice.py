@@ -126,9 +126,9 @@ def init_lattice_props(lattname):
 
         errorbarwidth = 0.8
 
-        free_file_red = '/Users/Felipe/Google Drive/Documents/JLab/time_like_form_factor/self notes/free_levels/a856/free_levels_redstar.txt'
+        free_file_red = '/Users/felipeortg/Google Drive/My Drive/Documents/JLab/time_like_form_factor/self notes/free_levels/a856/free_levels_redstar.txt'
 
-        free_file_sca = '/Users/Felipe/Google Drive/Documents/JLab/time_like_form_factor/scattering_24_a856/free_levels/free_levels_scattering_devel_mod.txt'
+        free_file_sca = '/Users/felipeortg/Google Drive/My Drive/Documents/JLab/time_like_form_factor/scattering_24_a856/free_levels/free_levels_scattering_devel_mod.txt'
 
     else:
         print(lattname)
