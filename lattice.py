@@ -3,6 +3,8 @@
 # @Date    : 2021-09-2 12:04:18
 # @Author  : Felipe G. Ortega-Gama (felipeortegagama@gmail.com)
 
+drive_loc = '/Users/felipeortg/Google Drive/My Drive/'
+
 LatticeLength = None
 chi = None
 
@@ -126,9 +128,9 @@ def init_lattice_props(lattname):
 
         errorbarwidth = 0.8
 
-        free_file_red = '/Users/felipeortg/Google Drive/My Drive/Documents/JLab/time_like_form_factor/self notes/free_levels/a856/free_levels_redstar.txt'
+        free_file_red = drive_loc + 'Documents/JLab/time_like_form_factor/self notes/free_levels/a856/free_levels_redstar.txt'
 
-        free_file_sca = '/Users/felipeortg/Google Drive/My Drive/Documents/JLab/time_like_form_factor/scattering_24_a856/free_levels/free_levels_scattering_devel_mod.txt'
+        free_file_sca = drive_loc + 'Documents/JLab/time_like_form_factor/scattering_24_a856/free_levels/free_levels_scattering_devel_mod.txt'
 
     else:
         print(lattname)

@@ -9,10 +9,14 @@ import matplotlib.pyplot as plt
 import sys
 
 # Import macros and the file with all lattice definitions
-sys.path.append('/Users/Felipe/Google Drive/bin/')
-import spectrum as spec
-import lattice
-
+# These are in the same git repo, and therefore no need to append PATH
+try:
+    import spectrum as spec
+    import lattice
+except:
+    print('Libraries spectrum and/or lattice not found')
+    raise Exception('This script is part of a repo and needs the other libraries in the repo to work...')
+    
 # Import the name of this lattice_channel
 sys.path.append('../../../')
 import this_lattice as tl

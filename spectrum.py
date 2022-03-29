@@ -51,7 +51,7 @@ def free_part_en(m1,m2,L,k1,k2,P):
     return np.sqrt( (p1en + p2en)**2 - P2 * (2*np.pi/L)**2 )
 
 def ecm_prop_unc(energyunc, P, Lchi):
-    """ Propagate the uncertainty in energy to the CM frame"""
+    """ Propagate the uncertainty in lattice energy to the CM frame"""
     energy, unc = energyunc
     
     ecm = np.sqrt(energy**2 - np.dot(P,P)*(2*np.pi/Lchi)**2)
@@ -59,6 +59,16 @@ def ecm_prop_unc(energyunc, P, Lchi):
     unccm = energy * unc / ecm
     
     return [ecm, unccm]
+
+def latt_prop_unc(energyunc, P, Lchi):
+    """ Propagate the uncertainty in cm energy to the lattice frame"""
+    energy, unc = energyunc
+    
+    elatt = np.sqrt(energy**2 + np.dot(P,P)*(2*np.pi/Lchi)**2)
+    
+    unclatt = energy * unc / elatt
+    
+    return [elatt, unclatt]
 
 def order_two_meson_list_at_xiL(twomesonlist, irreP, xiL, mesonmasses):
     """Order the list in the dictionary """

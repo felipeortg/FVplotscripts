@@ -8,11 +8,9 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib.colors as colors
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import csv
-import subprocess
+# import subprocess
 from iminuit import Minuit
 from iminuit.util import describe, make_func_code
 
@@ -221,7 +219,7 @@ def ensemble_op(fun, ensemble, jackknifed = False):
     return jackup(enseres)
 
 def two_ensemble_op(operation, ensemble1, ensemble2, jackknifed = False):
-    """Do a time-dependant operation(ens1, ens2) with jackknife statistics
+    """Do an operation(ens1, ens2) with jackknife statistics
     always return the upscale ensemble, but can receive a downscaled ensembles """
 
     if not jackknifed:
@@ -458,7 +456,8 @@ def print_line_model(xd, model, params_ense, factor):
     print(np.transpose(np.array([xarr,mean_pred-error_pred])))
 
 def plot_fromfile(filename, axs, nn=0, mask = []):
-    """ Get the data from a file and plot the mean with errors,
+    """ Get the data from a file and plot:
+    The mean with errors
     The error to value ratio
     The correlation and covariance
     option to mask the input data
@@ -496,7 +495,7 @@ def plot_fromfile(filename, axs, nn=0, mask = []):
 
     axs[0].set_title('Mean Data')
 
-    axs[1].plot(xdata, np.abs(e_ydata/m_ydata), 'x')
+    axs[1].plot(xdata, np.abs(e_ydata/m_ydata), 'x', c = 'C'+str(nn))
     axs[1].axhline(0,lw=1,color='k')
     axs[1].axhline(0.12,lw=1,color='k')
 
@@ -512,7 +511,10 @@ def plot_fromfile(filename, axs, nn=0, mask = []):
     plt.colorbar(mat1, cax=cax)
 
     # Assume xdata is nicely ordered
-    dist = np.floor(len(xdata)/6) 
+    if len(xdata) < 6:
+        dist = 1
+    else:
+        dist = np.floor(len(xdata)/6) 
     ticks = range(0, len(xdata), int(dist))
     tl = [str(t+xdata[0]) for t in ticks]
 
