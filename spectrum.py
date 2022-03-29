@@ -287,7 +287,7 @@ def read_free_spectrum_scatdevel(filename):
 
         inirrep = False
         for line in f:
-            if line[0] == '#': # ignore comments
+            if line[0] == '#' or line[:5] == '---->': # ignore comments and printed announcements
                 continue
 
             if line[0] == '*':

@@ -12,9 +12,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-if len(sys.argv) < 2 :
-    print('Run in folder with dataset.py, and with parent folder holding this_lattice.py')
-    print('Usage is: {0} scat_devel_inter_lvl_file(s)'.format(sys.argv[0]))
+if len(sys.argv) < 3 :
+    print('Run in folder with this_lattice.py')
+    print('Usage is: {0} amplitude_plot_label scat_devel_inter_lvl_file(s)'.format(sys.argv[0]))
     raise Exception('Too few arguments.')
 
 # Import macros and the file with all lattice definitions
@@ -27,12 +27,9 @@ except:
     raise Exception('This script is part of a repo and needs the other libraries in the repo to work...')
 
 # Import the name of this lattice_channel
-sys.path.append('../')
+sys.path.append('./')
 import this_lattice as tl
 
-# Which levels were actually used for this spectrum, also more options, eg mode of free levels
-sys.path.append('./')
-import dataset
 
 
 # In[2]:
@@ -45,10 +42,11 @@ plt.rc('font', size=14)
 plt.rc('axes.formatter', useoffset = False)
 
 
+amplitude = sys.argv[1]
 
 # In[3]:
 # Get the output files from scattering_devel with the interacting spectrum from an amplitude fit
-scat_irreps_data = sys.argv[1:]
+scat_irreps_data = sys.argv[2:]
 
 spectrum_pred = dict()
 
@@ -62,8 +60,6 @@ for scat_devel_file in scat_irreps_data:
     
     spectrum_pred[irrep_int] = np.array(spec.read_interacting_spectrum_scatdevel(scat_devel_file))
 
-# Get the number of levels in each irrep
-numoflev = spec.read_Ecm_ini(dataset.Ecm_ini)
 
 # In[4]:
 # Get the values of the masses/names/Lattice properties/thresholds/plot options
@@ -135,29 +131,10 @@ def get_plot_thr_range(irreirrep):
 
 # In[9]:
 
-try:
-    header = dataset.header
-except:
-    header ='../../spectrum/data/'
-
 irreps_data = list(spectrum_pred)
 
 spectrum_int = dict()
 
-# irreps_int = []
-
-print("Getting lattice data from: ", header)
-
-for irs in irreps_data:
-    inter_file = header + irs + '/reconfit_out.txt'
-
-    irrept, spectrumt, t0strt = spec.read_reconfit_file(inter_file)
-    
-    energyrange = get_plot_thr_range(irrept[4:])[2]
-
-    spectrum = spec.clean_calc_spectrum(spectrumt, irrept, energyrange, chi, LatticeLength, errorbarwidth)
-
-    spectrum_int[irrept] = spectrum
 
 
 # In[11]:
@@ -208,29 +185,8 @@ for nn, irre in enumerate(spectrum_pred):
     for eth in extrathresholds:
         axis.axhline(y= eth[0], linestyle = eth[1], color=eth[2], label=eth[3])
         
-        
-    # Plot lattice data
-    for nn,level in enumerate(spectrum_int[irre]):
-        levcolor = 'k'
-
-        try:
-            if nn >= numoflev[irre]:
-                levcolor = 'grey'
-        # if an irrep is not in the ecmdata it is because it was not used in the fit
-        except KeyError:
-            levcolor = 'grey'
-        
-        if nn == 0:        
-            plt.errorbar(level[0], level[1], yerr=level[2], 
-                     marker='_', mec=levcolor, fillstyle='none', ecolor=levcolor, ls='',
-                     elinewidth=1,capsize=10*errorbarwidth/0.8,label = 'data', zorder=4)
-        else:
-            plt.errorbar(level[0], level[1], yerr=level[2], 
-                     marker='_', mec=levcolor, fillstyle='none', ecolor=levcolor,
-                     elinewidth=1,capsize=10*errorbarwidth/0.8,zorder=4)
-        
-
-    plt.errorbar(spectrum_pred[irre][:,0], spectrum_pred[irre][:,1], yerr=spectrum_pred[irre][:,2], label = 'fit', ls='',
+    # Plot amplitude result
+    plt.errorbar(spectrum_pred[irre][:,0], spectrum_pred[irre][:,1], yerr=spectrum_pred[irre][:,2], label = amplitude, ls='',
                      marker='o', mec='orangered', fillstyle='none', ecolor='orangered',elinewidth=1,capsize=5*errorbarwidth/0.8,zorder=3)  
         
         

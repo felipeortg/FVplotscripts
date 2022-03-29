@@ -103,7 +103,7 @@ def init_lattice_props(lattname):
 
 
         thresholdsm = ['pixxpi','kaonxxkbar','pixxomega','pixxphi']
-        thresholdsp = thresholdsm
+        thresholdsp = ['pixxomega','pixxphi']
         thresholdsmp = thresholdsm
 
         ls_types = ['solid', 'dotted', 'dashdot', (0, (3, 1, 1, 1, 1, 1))]
@@ -131,6 +131,163 @@ def init_lattice_props(lattname):
         free_file_red = drive_loc + 'Documents/JLab/time_like_form_factor/self notes/free_levels/a856/free_levels_redstar.txt'
 
         free_file_sca = drive_loc + 'Documents/JLab/time_like_form_factor/scattering_24_a856/free_levels/free_levels_scattering_devel_mod.txt'
+
+    # Parameters of the a_840 lattice
+    elif lattname[3:] == 'a840_IG_1p':
+
+
+        # TABLE of 2008.06432 and references therein
+        mpion =  0.06906
+        mkaon = 0.09698
+        meta = 0.10364
+        
+        momega = 0.15541
+        mphi = 0.17949
+
+        
+        LatticeLength = int(lattname[:2])
+        if not (LatticeLength in [16,20,24]):
+            raise Exception('This volume: {0}, was not added'.format(LatticeLength))
+        chi = 3.444
+
+
+        mesons = {
+            'pion_proj0' : {'mass' : mpion, 'name' : r'\pi'},
+            'Kneg_proj0' : {'mass' : mkaon, 'name' : r'K'},
+            'Kbarneg_proj0' : {'mass' : mkaon, 'name' : r'\overline{K}'},
+            'omega_proj0' : {'mass' : momega, 'name' : r'\omega'},
+            'omega_proj1' : {'mass' : mphi, 'name' : r'\phi'},
+            'pi' : {'mass' : mpion, 'name' : r'\pi'},
+            'kaon' : {'mass' : mkaon, 'name' : r'K'},
+            'kbar' : {'mass' : mkaon, 'name' : r'\overline{K}'},
+            'omega' : {'mass' : momega, 'name' : r'\omega'},
+            'phi' : {'mass' : mphi, 'name' : r'\phi'}
+        }
+
+        masses = dict()
+        for key in mesons: masses[key] = mesons[key]['mass']
+
+        names = dict()
+        for key in mesons: names[key] = mesons[key]['name']
+
+
+        colors = {
+            'pion_proj0xxpion_proj0' : 'blue',
+            'Kneg_proj0xxKbarneg_proj0' : 'red',
+            'Kbarneg_proj0xxKneg_proj0' : 'red',
+            'pion_proj0xxomega_proj0' : 'green',
+            'pion_proj0xxomega_proj1' : 'brown',
+            'pixxpi' : 'blue',
+            'kaonxxkbar' : 'red',
+            'kbarxxkaon' : 'red',
+            'pixxomega' : 'green',
+            'pixxphi' : 'brown'
+        }
+
+
+        thresholdsm = ['pixxpi','kaonxxkbar','pixxomega']
+        thresholdsp = ['pixxomega']
+        thresholdsmp = thresholdsm
+
+        ls_types = ['solid', 'dotted', 'dashdot', (0, (3, 1, 1, 1, 1, 1))]
+
+        extrathresholdsm = []
+        extrathresholdsp = extrathresholdsm
+        extrathresholdsmp = extrathresholdsm
+
+
+        linestyles_types = ['solid', 'dotted', 'dashdot', (0, (3, 1, 1, 1, 1, 1))]
+
+        Lrange = [LatticeLength-4,LatticeLength+4]
+
+        energyrangem = [0.125,0.23]
+        energyrangep = [0.2,0.3]
+        energyrangemp = [0.125,0.23]
+
+
+        errorbarwidth = 0.8
+
+        free_file_red = None
+
+        free_file_sca = drive_loc + 'Documents/JLab/time_like_form_factor/self notes/free_levels/a840/free_levels_scattering_devel_mod_' + str(LatticeLength) + '.txt'
+
+    elif lattname == '16_20_24_a840_IG_1p':
+
+
+        # TABLE of 2008.06432 and references therein
+        mpion =  0.06906
+        mkaon = 0.09698
+        meta = 0.10364
+        
+        momega = 0.15541
+        mphi = 0.17949
+
+        
+        LatticeLength = 20
+
+        chi = 3.444
+
+
+        mesons = {
+            'pion_proj0' : {'mass' : mpion, 'name' : r'\pi'},
+            'Kneg_proj0' : {'mass' : mkaon, 'name' : r'K'},
+            'Kbarneg_proj0' : {'mass' : mkaon, 'name' : r'\overline{K}'},
+            'omega_proj0' : {'mass' : momega, 'name' : r'\omega'},
+            'omega_proj1' : {'mass' : mphi, 'name' : r'\phi'},
+            'pi' : {'mass' : mpion, 'name' : r'\pi'},
+            'kaon' : {'mass' : mkaon, 'name' : r'K'},
+            'kbar' : {'mass' : mkaon, 'name' : r'\overline{K}'},
+            'omega' : {'mass' : momega, 'name' : r'\omega'},
+            'phi' : {'mass' : mphi, 'name' : r'\phi'}
+        }
+
+        masses = dict()
+        for key in mesons: masses[key] = mesons[key]['mass']
+
+        names = dict()
+        for key in mesons: names[key] = mesons[key]['name']
+
+
+        colors = {
+            'pion_proj0xxpion_proj0' : 'blue',
+            'Kneg_proj0xxKbarneg_proj0' : 'red',
+            'Kbarneg_proj0xxKneg_proj0' : 'red',
+            'pion_proj0xxomega_proj0' : 'green',
+            'pion_proj0xxomega_proj1' : 'brown',
+            'pixxpi' : 'blue',
+            'kaonxxkbar' : 'red',
+            'kbarxxkaon' : 'red',
+            'pixxomega' : 'green',
+            'pixxphi' : 'brown'
+        }
+
+
+        thresholdsm = ['pixxpi','kaonxxkbar','pixxomega']
+        thresholdsp = ['pixxomega']
+        thresholdsmp = thresholdsm
+
+        ls_types = ['solid', 'dotted', 'dashdot', (0, (3, 1, 1, 1, 1, 1))]
+
+        extrathresholdsm = []
+        extrathresholdsp = extrathresholdsm
+        extrathresholdsmp = extrathresholdsm
+
+
+        linestyles_types = ['solid', 'dotted', 'dashdot', (0, (3, 1, 1, 1, 1, 1))]
+
+        Lrange = [LatticeLength-6,LatticeLength+6]
+
+        energyrangem = [0.125,0.23]
+        energyrangep = [0.2,0.3]
+        energyrangemp = [0.125,0.23]
+
+
+        errorbarwidth = 0.8
+
+        free_file_red = None
+
+        free_file_sca = drive_loc + 'Documents/JLab/time_like_form_factor/self notes/free_levels/a840/free_levels_scattering_devel_mod_24.txt'
+
 
     else:
         print(lattname)
