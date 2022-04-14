@@ -750,7 +750,7 @@ def plot_fromfile(filename, axs, nn=0, mask = []):
         else:
             dist = np.floor(len(xdata)/6) 
         ticks = range(0, len(xdata), int(dist))
-        tl = [str(t+xdata[0]) for t in ticks]
+        tl = [str(xdata[t]) for t in ticks]
 
         axs[2].set_xticks(ticks)
         axs[2].set_xticklabels(tl)
