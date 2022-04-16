@@ -231,7 +231,6 @@ def errormean(ense, meanense, jackknifed = False):
     if len(indepindices) > 1:
         raise Exception("This only calculates covariance matrix of ensemble with one dimension")
         
-    
     sizeense = ense.shape[0]
     sizedim = indepindices[0]
     sigma = np.empty([sizedim])
@@ -705,14 +704,16 @@ def plot_fromfile(filename, axs, nn=0, mask = []):
     xlims = axs[0].get_xlim()
     ylims = axs[0].get_ylim()
 
-    m_ymasked = meanense(ymasked)
+    if len(xmasked) > 0:
 
-    e_ymasked = errormean(ymasked, m_ymasked)
+        m_ymasked = meanense(ymasked)
 
-    plot_data(axs[0], xmasked, m_ymasked, e_ymasked, nn, alpha=0.5)
+        e_ymasked = errormean(ymasked, m_ymasked)
 
-    axs[0].set_xlim(xlims)
-    axs[0].set_ylim(ylims)
+        plot_data(axs[0], xmasked, m_ymasked, e_ymasked, nn, alpha=0.5)
+
+        axs[0].set_xlim(xlims)
+        axs[0].set_ylim(ylims)
 
     if len(axs) > 1:
 
@@ -723,10 +724,13 @@ def plot_fromfile(filename, axs, nn=0, mask = []):
         xlims = axs[1].get_xlim()
         ylims = axs[1].get_ylim()
 
-        axs[1].plot(xmasked, np.abs(e_ymasked/m_ymasked), 'x', c = 'C'+str(nn), alpha=0.5)
 
-        axs[1].set_xlim(xlims)
-        axs[1].set_ylim(ylims)
+        if len(xmasked) > 0:
+
+            axs[1].plot(xmasked, np.abs(e_ymasked/m_ymasked), 'x', c = 'C'+str(nn), alpha=0.5)
+
+            axs[1].set_xlim(xlims)
+            axs[1].set_ylim(ylims)
 
         axs[1].set_title('err/val ratio')
 
@@ -835,36 +839,56 @@ def plot_cfg_fromfile(filename, axs, nn=0, mask = [], plots = ['all']):
     cmap = cmap.reversed()
     norm = mpl.colors.Normalize(vmin=1, vmax=cfgs)
 
+    gcmap=plt.cm.get_cmap('Greys', 10)
+    gind = [i/10 for i in range(1,6)]
+    gind.extend(np.arange(5,0,-1)/10)
+    cmapc = mpl.colors.ListedColormap([gcmap(xx/.63) for xx in gind])
 
     for nn, ycfg in enumerate(ydata):
 
         axs[0].plot(xdata, ycfg, '_', ls='', color = cmap( norm( nn + 1 )))
 
+    xlims = axs[0].get_xlim()
+    ylims = axs[0].get_ylim()
 
-    axs[0].fill_between(xdata, m_ydata + 1*np.sqrt(cfgs) * e_ydata,
-             m_ydata - 1*np.sqrt(cfgs) * e_ydata,
-              color = 'gray',
-              alpha=1, zorder=1.7)        
 
-    axs[0].fill_between(xdata, m_ydata + 3*np.sqrt(cfgs) * e_ydata,
-             m_ydata - 3*np.sqrt(cfgs) * e_ydata,
-              color = 'gray',
-              alpha=0.3, zorder=1.6)        
+    Ny = 100
 
-    axs[0].fill_between(xdata, m_ydata + 5*np.sqrt(cfgs) * e_ydata,
-             m_ydata - 5*np.sqrt(cfgs) * e_ydata,
-              color = 'gray',
-              alpha=0.1, zorder=1.5)
+    y = np.linspace(ylims[0], ylims[1], num= Ny)
+    X, Y = np.meshgrid(xdata, y)
+    Z = (Y - m_ydata )/(e_ydata*np.sqrt(cfgs))
 
-    axs[0].fill_between(xdata, m_ydata + 7*np.sqrt(cfgs) * e_ydata,
-             m_ydata - 7*np.sqrt(cfgs) * e_ydata,
-              color = 'gray',
-              alpha=0.1, zorder=1.4)
+    CS = axs[0].contourf(X, Y, Z,levels=np.arange(-9,11,2), cmap=cmapc)
+    CS1 = axs[0].contour(CS,colors='k',linestyles= 'solid', linewidths=.8)
+    labs = axs[0].clabel(CS1, inline=True, fontsize=10)
 
-    axs[0].fill_between(xdata, m_ydata + 9*np.sqrt(cfgs) * e_ydata,
-             m_ydata - 9*np.sqrt(cfgs) * e_ydata,
-              color = 'gray',
-              alpha=0.1, zorder=1.3)
+    axs[0].set_xlim(xlims)
+    # axs[0].set_ylim(ylims)
+
+    # axs[0].fill_between(xdata, m_ydata + 1*np.sqrt(cfgs) * e_ydata,
+    #          m_ydata - 1*np.sqrt(cfgs) * e_ydata,
+    #           color = 'gray',
+    #           alpha=1, zorder=1.7)        
+
+    # axs[0].fill_between(xdata, m_ydata + 3*np.sqrt(cfgs) * e_ydata,
+    #          m_ydata - 3*np.sqrt(cfgs) * e_ydata,
+    #           color = 'gray',
+    #           alpha=0.3, zorder=1.6)        
+
+    # axs[0].fill_between(xdata, m_ydata + 5*np.sqrt(cfgs) * e_ydata,
+    #          m_ydata - 5*np.sqrt(cfgs) * e_ydata,
+    #           color = 'gray',
+    #           alpha=0.1, zorder=1.5)
+
+    # axs[0].fill_between(xdata, m_ydata + 7*np.sqrt(cfgs) * e_ydata,
+    #          m_ydata - 7*np.sqrt(cfgs) * e_ydata,
+    #           color = 'gray',
+    #           alpha=0.1, zorder=1.4)
+
+    # axs[0].fill_between(xdata, m_ydata + 9*np.sqrt(cfgs) * e_ydata,
+    #          m_ydata - 9*np.sqrt(cfgs) * e_ydata,
+    #           color = 'gray',
+    #           alpha=0.1, zorder=1.3)
 
     divider = make_axes_locatable(axs[0])
     cax = divider.append_axes("bottom", size="3%", pad=0.3)
@@ -878,3 +902,27 @@ def plot_cfg_fromfile(filename, axs, nn=0, mask = [], plots = ['all']):
     #              cax=cax, label='Configuration', orientation = 'horizontal')
 
     return axs[0]
+
+def add_labels_correlation(covax, filename, mask=[], **kwargs):
+
+    cfgs, npoints, xdata, ydata, xmasked, ymasked = maskdata(filename,mask )
+    m_ydata = meanense(ydata)
+
+    e_ydata = errormean(ydata, m_ydata)
+
+
+    corr = cormatense(ydata, m_ydata)
+
+    for (j,i),label in np.ndenumerate(corr):
+        col = np.abs(label)
+
+        covax.text(i,j,f"{label:.2f}",ha='center',va='center', c=f"{col:.1f}", **kwargs)
+
+    return 1
+
+
+
+
+
+
+
