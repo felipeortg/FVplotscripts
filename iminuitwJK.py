@@ -440,8 +440,9 @@ def order_number(number, p = 1):
     Assign order 1 to numbers [9.95, 99.5) ...
     ...
     """
-
+    number = np.abs(number)
     numord = int(np.floor(np.log10(number)))
+
     if np.round( number *10**(-numord + p - 1)) == 10**p:
         numord += 1
 
@@ -454,19 +455,22 @@ def p_significant_digits(num, p=1):
     Returns numbers in [1,10) range
     """
 
+    sign = np.sign(num)
+    num = np.abs(num)
+
     numord = order_number(num, p)
 
     f = numord - (p - 1)
 
     if p > 0:
 
-        return np.round(num/10**f) * 10 **(1 - p)
+        return sign * np.round(num/10**f) * 10 **(1 - p)
         # Note that round chooses the closest even number 3.5 and 4.5 -> 4
 
     else:
         raise ValueError(f"p should be positive, not {p}")
 
-def percent_significant_digits(num, percent=10):
+def percent_significant_digits(num, percent=9):
     """ Write a number up to the significant digits
     that do not change its value more than the given percent
     return number [1,10) and exponent and number of sd """
@@ -474,9 +478,8 @@ def percent_significant_digits(num, percent=10):
         raise ValueError(f"percent should be in (0,100), not {percent}")
 
     if num == 0:
-        return num, 0
+        return num, 0, 1
 
-    change = 100
     p = 1
     val1 = p_significant_digits(num, p)
     order1 = order_number(num, p)
@@ -504,45 +507,149 @@ def percent_significant_digits(num, percent=10):
 
 def add_fit_info_ve(p, v, e):
     """
-    Get a formatted string of the form p = v(e) 
+    Get a formatted string of the form p = v(e) or p = v +/- e
     where p is the name of the variable
     v is value, e is error
     """
 
-    if e >= v:
-        # Only use 1 significant digit if error is bigger
-        v1sd = p_significant_digits(v, 1)
-        # Use 2 significant digits
-        e2sd = p_significant_digits(e, 2)
+    if e >= np.abs(v):
+        # get value to 9% significance
+        vsd, vord, vp = percent_significant_digits(v, percent=9)
 
-        vord = order_number(v, 1)
+        # Use 2 significant digits for error
+        e2sd = p_significant_digits(e, 2)
+        errd = 2
+        # could have a trailing zero in the error
+        if (e2sd * 10)%10 == 0:
+            errd = 1
+
         eord = order_number(e, 2)
 
-        if 3 > vord and vord > -1 :
-
-            einvord = e2sd * 10 ** (eord)
-            v1in0 = v1sd * 10 ** (vord)
-            fit_info = f"${p} = {v1in0:.3g}({einvord:.3g})$"
-
-        elif vord > -5:
-
+        # numbers that need scientific notation
+        if vord > 2 or vord < -3:
             if vord == eord:
-                # Use 1 significant digits in this case
-                e1sd = p_significant_digits(e, 1)
-                eord = order_number(e, 1)
+                # separate into +/- if same order, e.g. 2.1 +/- 1.1
 
-                einvord = e1sd * 10 ** (eord - vord)
-                v1in0 = v1sd * 10 ** (vord)
-                fit_info = f"${p} = {v1in0:.3g}({einvord:.3g})$"
+                fit_info = f"${p} = ({vsd:.{vp-1}f} \\pm {e2sd:.{errd-1}f})\\times 10^{{{vord}}}$"
 
             else:
-                einvord = e2sd * 10 ** (eord - vord )
-                v1in0 = v1sd * 10 ** (vord)
-                fit_info = f"${p} = {v1in0:.3g}({einvord:.3g})$"
+                # with error order bigger than value we can do
+                e2sd = e2sd * 10 ** (eord - vord)
+                fit_info = f"${p} = {vsd:.{vp-1}f}({e2sd:.0f})\\times 10^{{{vord}}}$"
 
+        # formats without scientific notation
         else:
-            einvord = e2sd * 10 ** (eord - vord)
-            fit_info = f"${p} = {v1sd:.0f}({einvord:.1f})\\times 10^{{{vord}}}$"
+            # when none need a decimal point
+            if vord - ( vp - 1 ) > -1 and eord - 1 > -1:
+                val = vsd * 10 ** vord
+                err = e2sd * 10 ** eord
+
+                fit_info = f"${p} = {val:.0f}({err:.0f})$"
+
+            # other option is that both are below the decimal point
+            elif vord < 0 and eord < 0:
+                val = vsd * 10 ** vord
+                vald = - vord + (vp - 1)
+
+                # equal order, non-zero second digit error, and zero second digit val
+                # we need to ensure val has enough digits 
+                if vord == eord and (e2sd * 10)%10 != 0 and (val * 10)%10 == 0:
+                    vald+=1
+                
+                esd = e2sd * 10 ** (eord + vald)
+
+                fit_info = f"${p} = {val:.{vald}f}({esd:.0f})$"
+
+            # all other cases there is a decimal point we have to worry about
+            else:
+                val = vsd * 10 ** vord
+                vald = 0
+
+                # check if val needs the decimal point
+                if vord < 1:
+                    vald = - vord + (vp - 1)
+
+                err = e2sd * 10 ** eord
+                errd = 0
+
+                # check if err needs the decimal point
+                if eord == 0 and (e2sd * 10)%10 != 0:
+                    errd = 1
+
+                fit_info = f"${p} = {val:.{vald}f} \\pm {err:.{errd}f}$"
+
+            # elif vord == 0:
+            #     # print('eord0')
+            #     val = vsd * 10 ** vord
+            #     vald = vp - 1
+
+            #     err = e2sd * 10 ** eord
+            #     errd = 0
+
+            #     #c heck if error needs decimal point
+            #     if eord == 0 and (e2sd * 10)%10 != 0:
+            #         errd = 1
+
+            #     fit_info = f"${p} = {val:.{vald}f} \\pm {err:.{errd}f}$"
+
+            # when equal order and non-zero second digit error we need to make sure val
+            # has enough digits    
+            # elif vord == eord and (e2sd * 10)%10 != 0:
+            #     val = vsd * 10 ** vord
+            #     vald = - vord + vp
+            #     esd = e2sd * 10 ** (eord + vald)
+
+            #     fit_info = f"${p} = {val:.{vald}f}({esd:.0f})$"
+
+            # else:
+            #     # print('sh')
+            #     # All other ones can use short hand notation with decimal point
+            #     val = vsd * 10 ** vord
+            #     vald = - vord + (vp - 1)
+                
+            #     esd = e2sd * 10 ** (eord - vald)
+
+                # fit_info = f"${p} = {val:.{vald}f}({esd:.0f})$"
+
+    # if e >= np.abs(v):
+    #     # Only use 1 significant digit if error is bigger
+    #     v1sd = p_significant_digits(v, 1)
+    #     # Use 2 significant digits for error
+    #     e2sd = p_significant_digits(e, 2)
+    #     print(v1sd,e2sd)
+    #     print(v,e)
+    #     vord = order_number(v, 1)
+    #     eord = order_number(e, 2)
+
+    #     if 3 > vord and vord > -1 :
+
+    #         ein0 = e2sd * 10 ** (eord)
+    #         v1in0 = v1sd * 10 ** (vord)
+    #         fit_info = f"${p} = {v1in0:.0f}({ein0:.0f})$"
+
+    #     elif 0 > vord and vord > -5:
+    #         v1in0 = v1sd * 10 ** (vord)
+
+    #         if eord == 0:
+    #             ein0 = e2sd * 10 ** (eord)
+    #             fit_info = f"${p} = {v1in0:.{-vord}f} \\pm {ein0:.1f})$"
+
+    #         elif vord == eord:
+    #             einvord = e2sd * 10 ** (eord - vord + 1)
+    #             fit_info = f"${p} = {v1in0:.{-vord+1}f}({einvord:.0f})$"   
+
+    #         else:
+
+    #             einvord = e2sd * 10 ** (eord - vord)
+    #             fit_info = f"${p} = {v1in0:.{-vord}f}({einvord:.0f})$"   
+
+    #     else:
+    #         einvord = e2sd * 10 ** (eord - vord)
+    #         if eord == vord: 
+    #             fit_info = f"${p} = ({v1sd:.0f} \\pm {einvord:.1f})\\times 10^{{{vord}}}$"
+            
+    #         else:
+    #             fit_info = f"${p} = {v1sd:.0f}({einvord:.0f})\\times 10^{{{vord}}}$"
 
     else:
         # Check order to 2 precision digits
@@ -554,10 +661,6 @@ def add_fit_info_ve(p, v, e):
         # Check error to 9 percent precision
         esd, eord, errd = percent_significant_digits(e, percent=9)
 
-        if vord < eord:
-            raise Exception("There is a weird case where v:{0} > e:{1} but the orders are reversed...".format(v,e))
-
-
         # Increase the precision of v until all important digits are in: ov - oe + errd
         vp = vald
         while vord - eord + errd > vp:
@@ -566,8 +669,24 @@ def add_fit_info_ve(p, v, e):
 
         vsd = p_significant_digits(v, p=vp)
 
+        if vord < eord:
+            esd = p_significant_digits(e, 2)
+            eord = order_number(e, 2)
+            errd = 2
+            if vord < eord:
+                raise Exception("There is a weird case where v:{0} > e:{1} but the orders are reversed...".format(v,e))
+
+
+        # if errd == 1 and vord == eord:
+        #     esd = p_significant_digits(e, p=2)
+        #     eord
+
+
+        
+        # print(vsd, vord, vp)
+
+        # numbers that need scientific notation
         if vord > 2 or vord < -3:
-            # formats with scientific notation
             if errd == 1:
                 # when only one digit for error
                 if vald == 2 and vord == eord:
@@ -595,25 +714,31 @@ def add_fit_info_ve(p, v, e):
             elif use_format == 'shorthand scientific':
                 vald = vord - eord + (errd - 1)
                 esd = esd * 10 ** (errd - 1)
-                fit_info = f"${p} = ({vsd:.{vald}f}({esd})$"
+                fit_info = f"${p} = {vsd:.{vald}f}({esd:.0f})\\times 10^{{{vord}}}$"
 
             else:
                 raise Exception(f"The value v:{v} was expected scientific, but with e:{e} did not match any category")
 
+        # formats without scientific notation
         else:
-            # formats without scientific notation
-
+            # When the two numbers have their sd above the decimal place
             if vord - ( vald - 1 ) > -1 and eord - (errd - 1) > -1:
-                # print('ab')
-                # When the two numbers have their sd above the decimal place
                 val = vsd * 10 ** vord
                 err = esd * 10 ** eord
 
                 fit_info = f"${p} = {val:.0f}({err:.0f})$"
 
-            elif eord == 0:
-                # print('eord0')
-                # Since the option when writing as integers has been taken
+            # When both numbers are below the decimal point
+            elif vord < 0 and eord < 0:
+                val = vsd * 10 ** vord
+                # print(val, vsd, vord)
+                vald = - eord + (errd - 1)
+                
+                esd = esd * 10 ** (errd - 1)
+                fit_info = f"${p} = {val:.{vald}f}({esd:.0f})$"
+
+            # The rest
+            else:   
                 val = vsd * 10 ** vord
                 vald = vald - 1
 
@@ -621,16 +746,6 @@ def add_fit_info_ve(p, v, e):
                 errd = errd - 1
 
                 fit_info = f"${p} = {val:.{vald}f} \\pm {err:.{errd}f}$"
-
-            else:
-                # print('sh')
-                # All other ones can use short hand notation with decimal point
-                val = vsd * 10 ** vord
-                vald = - eord + (errd - 1)
-                
-                esd = esd * 10 ** (errd - 1)
-
-                fit_info = f"${p} = {val:.{vald}f}({esd:.0f})$"
 
         # if eord - (errd - 1) > -1:
         #     vin0 = vsd * 10 ** (vord)
@@ -712,7 +827,7 @@ def add_fit_info_ve(p, v, e):
     return fit_info
 
 
-def summarize_result(mean_fit, params_ense, mean_chi2, xdata):
+def summarize_result(mean_fit, params_ense, mean_chi2, xdata, pretty_vars = []):
     mean_pars = meanense(params_ense)
     cov_pars = covmatense(params_ense,mean_pars)
     cor_pars = cormatense(params_ense,mean_pars)
@@ -720,7 +835,13 @@ def summarize_result(mean_fit, params_ense, mean_chi2, xdata):
 
     fit_info = [f"$\\chi^2$ / $n_\\mathrm{{dof}}$ = {mean_chi2:.1f} / ({len(xdata)} - {mean_fit.nfit}) = {mean_chi2/(len(xdata) - mean_fit.nfit):.2f}"]
 
-    for p, v, e in zip(mean_fit.parameters, mean_pars, np.diag(cov_pars)**(1/2)):
+
+    names = mean_fit.parameters
+
+    if len(mean_pars) == len(pretty_vars):
+        names = pretty_vars
+
+    for p, v, e in zip(names, mean_pars, np.diag(cov_pars)**(1/2)):
 
         fit_info.append(add_fit_info_ve(p, v, e))
 
@@ -742,8 +863,10 @@ def summarize_result(mean_fit, params_ense, mean_chi2, xdata):
 # Plot functions
 ###################
 ###################
+def dummy_factor(x):
+    return 1
 
-def plot_line_model(ax, lab, nn, xd, model, params_ense, factor):
+def plot_line_model(ax, lab, nn, xd, model, params_ense, factor=dummy_factor):
 
     xarr = np.linspace(min(xd), max(xd), num=100)
 
@@ -764,7 +887,12 @@ def plot_line_model(ax, lab, nn, xd, model, params_ense, factor):
 
     return out
 
-def print_line_model(xd, model, params_ense, factor):
+def print_line_model(xd, model, params_ense, factor=dummy_factor):
+    """
+    Print the value of a model
+    input: xarray, model function, params ensemble, [factor in xspace]
+
+    """
 
     xarr = np.linspace(min(xd), max(xd), num=105)
 
@@ -785,6 +913,28 @@ def print_line_model(xd, model, params_ense, factor):
     print(np.transpose(np.array([xarr,mean_pred+error_pred])))
     print("Model - S")
     print(np.transpose(np.array([xarr,mean_pred-error_pred])))
+
+def get_line_model(xd, model, params_ense, factor=dummy_factor):
+    """
+    Return the value of a model
+    input: xarray, model function, params ensemble, [factor in xspace]
+
+    """
+
+    xarr = xd
+
+    paramsjk = jackdown(params_ense)
+
+    pred = []
+    for paramset in paramsjk:
+        pred.append([model(xval, *paramset) * factor(xval) for xval in xarr])
+
+    predup = jackup(pred)
+
+    mean_pred = meanense(predup)
+    error_pred = errormean(predup, mean_pred)
+
+    return mean_pred, error_pred
 
 def plot_fromfile(filename, axs, nn=0, mask = []):
     """ Get the data from a file and plot:
