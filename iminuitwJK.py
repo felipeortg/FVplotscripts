@@ -672,7 +672,7 @@ def add_fit_info_ve(p, v, e):
                 fit_info = f"${p} = {val:.{vald}f} \\pm {err:.{errd}f}$"
 
     else:
-        # Check order to 2 precision digits
+        # Check order of value to 2 precision digits
         # print(v)
         vsd = p_significant_digits(v, p=2)
         vord = order_number(v, p=2)
@@ -756,6 +756,12 @@ def add_fit_info_ve(p, v, e):
                 # print('sh')
                 # All other ones can use short hand notation with decimal point
                 val = vsd * 10 ** vord
+
+                # fix the case where .95 +/- .46 -> 1.0(5) to do 0.95(50)
+                # specially since .95 +/- .45 -> .95(45) 
+                if vord == eord and errd == 1:
+                    errd += 1
+
                 vald = - eord + (errd - 1)
                 
                 esd = esd * 10 ** (errd - 1)
