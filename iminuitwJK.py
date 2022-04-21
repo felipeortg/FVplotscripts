@@ -648,16 +648,9 @@ def add_fit_info_ve(p, v, e):
                 fit_info = f"${p} = {val:.0f}({err:.0f})$"
 
             # When both numbers are below the decimal point
-            elif vord < 0 and eord < 0:
-                val = vsd * 10 ** vord
-                # print(val, vsd, vord)
-                vald = - eord + (errd - 1)
-                
-                esd = esd * 10 ** (errd - 1)
-                fit_info = f"${p} = {val:.{vald}f}({esd:.0f})$"
-
-            # The rest
-            else:   
+            elif eord == 0:
+                # print('eord0')
+                # Since the option when writing as integers has been taken
                 val = vsd * 10 ** vord
                 vald = vald - 1
 
@@ -665,6 +658,16 @@ def add_fit_info_ve(p, v, e):
                 errd = errd - 1
 
                 fit_info = f"${p} = {val:.{vald}f} \\pm {err:.{errd}f}$"
+
+            else:
+                # print('sh')
+                # All other ones can use short hand notation with decimal point
+                val = vsd * 10 ** vord
+                vald = - eord + (errd - 1)
+                
+                esd = esd * 10 ** (errd - 1)
+
+                fit_info = f"${p} = {val:.{vald}f}({esd:.0f})$"
 
     return fit_info
 
