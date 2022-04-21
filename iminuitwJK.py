@@ -346,6 +346,16 @@ def do_fit(model, xd, yd, invcov, **kwargs):
 
     return m
 
+def do_fit_limits(model, xd, yd, invcov, limits, **kwargs):
+    lsq = LeastSquares(model, xd, yd, invcov)
+    m = Minuit(lsq, **kwargs)
+    m.limits = limits
+    m.migrad()
+    m.hesse()
+    # m.minos()
+
+    return m
+
 def fit_data(xdata, ydata, fun, verb = 0, **kwargs):
 
     # print(xdata,ydata)
@@ -429,6 +439,89 @@ def fit_data(xdata, ydata, fun, verb = 0, **kwargs):
 
     return mean_fit, params_up, mean_chi2
 
+
+def fit_data_limits(xdata, ydata, fun, limits, verb = 0, **kwargs):
+
+    # print(xdata,ydata)
+
+    m_ydata = meanense(ydata)
+
+    cov_ydata = covmatense(ydata, m_ydata)
+
+    if verb > 1:
+        print("Mean of data, and size of cov matrix")
+        print(m_ydata)
+        print(np.shape(cov_ydata))
+        print("-------")
+
+    if verb > 2:
+        print("Cov matrix")
+        mprint(cov_ydata,1e9)
+        print("-------")
+
+    
+    if verb > 0:
+        print("Correlation matrix of the data")
+        mprint(cormatense(ydata, m_ydata))
+        print("-------")
+
+    # Invert the covariance matrix
+    try:
+        inv_cov_ydata=np.linalg.inv(cov_ydata)
+    except:
+        print("Eigenvalues of the covariance matrix should be non-zero, and by def positive")
+        print(np.linalg.eigvalsh(cov_ydata))
+        raise Exception('Inversion of covariance data failed')
+
+    # Do fit to mean to get priors
+
+    mean_fit = do_fit_limits(fun, xdata, m_ydata, inv_cov_ydata, limits, **kwargs)
+
+    if not mean_fit.valid:
+        print(mean_fit)
+        raise Exception("The fit to the mean data was not valid")
+
+    if verb > 0:
+        print("Fit to the mean result:")
+        print(mean_fit)
+        print("-------")
+
+    priors = mean_fit.values
+    priordict = {}
+    for nn, ele in enumerate(mean_fit.parameters):
+        priordict[ele] = priors[nn]
+
+    # Do fit to each Jackknife sample
+    y_down = jackdown(ydata)
+
+    chi2 = []
+    paramsjk = []
+    failed = 0
+
+    for nn, jk_y in enumerate(y_down):
+        m = do_fit_limits(fun, xdata, jk_y, inv_cov_ydata, limits, **priordict)
+
+        if m.valid:
+            chi2.append(m.fval)
+            paramsjk.append(m.values)
+        else:
+            failed += 1
+            print("The fit {0} did not converge".format(nn))
+            print(jk_y)
+            print(m)
+            print("-------")
+
+    siz = ydata.shape[0]
+    print("{0} out of {1} JK fits successful".format(siz-failed,siz))
+
+    params_up = jackup(paramsjk)
+
+
+    chi2_up = jackup(chi2)
+    mean_chi2 = meanense(chi2_up)
+
+
+    return mean_fit, params_up, mean_chi2
 
 def order_number(number, p = 1):
     """ Get the order of a number given p significant digits 
@@ -535,7 +628,7 @@ def add_fit_info_ve(p, v, e):
             else:
                 # with error order bigger than value we can do
                 e2sd = e2sd * 10 ** (eord - vord)
-                fit_info = f"${p} = {vsd:.{vp-1}f}({e2sd:.0f})\\times 10^{{{vord}}}$"
+                fit_info = f"${p} = {vsd:.0f}({e2sd:.0f})\\times 10^{{{vord}}}$"
 
         # formats without scientific notation
         else:
