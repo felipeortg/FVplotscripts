@@ -136,7 +136,7 @@ for jj, kdict in enumerate(orderedmesonlist):
 
 for mm, particles in enumerate(thresholds):
     m1, m2 = particles.split('xx')
-    plt.axhline(y=masses[m1] + masses[m2], linestyle = '--', color=colors[particles], label= r'$' + names[m1] + names[m2] + '$')
+    plt.axhline(y=masses[m1] + masses[m2], linestyle = '--', color=colors[particles], lw=2, label= r'$' + names[m1] + names[m2] + '$')
 
 for eth in extrathresholds:
     axis.axhline(y= eth[0], linestyle = eth[1], color=eth[2], label=eth[3])

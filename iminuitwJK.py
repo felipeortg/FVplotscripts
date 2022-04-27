@@ -969,9 +969,7 @@ def plot_fromfile(filename, axs, nn=0, mask = []):
         mat1 = axs[2].matshow(corr, cmap = cmap, norm = norm)
         
         axs[2].set_title('Correlation matrix')
-        divider = make_axes_locatable(axs[2])
-        cax = divider.append_axes("right", size="5%", pad=0.1)
-        plt.colorbar(mat1, cax=cax)
+        plt.colorbar(mat1, ax=axs[2])
 
         # Assume xdata is nicely ordered
         if len(xdata) < 6:
@@ -991,9 +989,7 @@ def plot_fromfile(filename, axs, nn=0, mask = []):
 
             mat2 = axs[3].matshow(np.log(np.abs(cov)))
             axs[3].set_title('Log |Covariance matrix|')
-            divider = make_axes_locatable(axs[3])
-            cax = divider.append_axes("right", size="5%", pad=0.1)
-            plt.colorbar(mat2, cax=cax)
+            plt.colorbar(mat2, ax=axs[3])
 
 
             axs[3].set_xticks(ticks)
@@ -1088,43 +1084,12 @@ def plot_cfg_fromfile(filename, axs, nn=0, mask = [], plots = ['all']):
     labs = axs[0].clabel(CS1, inline=True, fontsize=10)
 
     axs[0].set_xlim(xlims)
-    # axs[0].set_ylim(ylims)
-
-    # axs[0].fill_between(xdata, m_ydata + 1*np.sqrt(cfgs) * e_ydata,
-    #          m_ydata - 1*np.sqrt(cfgs) * e_ydata,
-    #           color = 'gray',
-    #           alpha=1, zorder=1.7)        
-
-    # axs[0].fill_between(xdata, m_ydata + 3*np.sqrt(cfgs) * e_ydata,
-    #          m_ydata - 3*np.sqrt(cfgs) * e_ydata,
-    #           color = 'gray',
-    #           alpha=0.3, zorder=1.6)        
-
-    # axs[0].fill_between(xdata, m_ydata + 5*np.sqrt(cfgs) * e_ydata,
-    #          m_ydata - 5*np.sqrt(cfgs) * e_ydata,
-    #           color = 'gray',
-    #           alpha=0.1, zorder=1.5)
-
-    # axs[0].fill_between(xdata, m_ydata + 7*np.sqrt(cfgs) * e_ydata,
-    #          m_ydata - 7*np.sqrt(cfgs) * e_ydata,
-    #           color = 'gray',
-    #           alpha=0.1, zorder=1.4)
-
-    # axs[0].fill_between(xdata, m_ydata + 9*np.sqrt(cfgs) * e_ydata,
-    #          m_ydata - 9*np.sqrt(cfgs) * e_ydata,
-    #           color = 'gray',
-    #           alpha=0.1, zorder=1.3)
 
     divider = make_axes_locatable(axs[0])
     cax = divider.append_axes("bottom", size="3%", pad=0.3)
 
     plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
                  cax=cax, label='Configuration', orientation = 'horizontal')
-
-    # cax = divider.append_axes("bottom", size="3%", pad=0.3)
-
-    # plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
-    #              cax=cax, label='Configuration', orientation = 'horizontal')
 
     return axs[0]
 

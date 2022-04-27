@@ -3,7 +3,7 @@
 # @Date    : 2021-09-08 13:49:21
 # @Author  : Felipe G. Ortega-Gama (felipeortegagama@gmail.com)
 # @Version : 1
-# Plot the comparison between an amplitude (via Luescher) and the lattice levels
+# Plot the comparison between amplitude (via Luescher) and the free lattice levels
 
 # In[1]:
 
@@ -30,6 +30,13 @@ except:
 sys.path.append('./')
 import this_lattice as tl
 
+label_plot = True
+
+# Use this_lattice to decide if plots will have labels
+try:
+    label_plot = tl.label_plot
+except:
+    pass
 
 
 # In[2]:
@@ -147,9 +154,10 @@ for nn, irre in enumerate(spectrum_pred):
     irreirrep = irre[4:]
     
     thresholds,extrathresholds,energyrange  = get_plot_thr_range(irreirrep)
-
-    plt.figure(nn,figsize=(4,6))
-    axis = plt.gca()
+    if label_plot:
+        fig, axis = plt.subplots(num=nn, figsize=(4,6))
+    else: # Smaller plot when no labels added
+        fig, axis = plt.subplots(num=nn, figsize=(2.2,6))
 
     orderedmesonlist = spec.order_two_meson_list_at_xiL(two_meson_dict[irre], irreP, LatticeLength*chi, masses)
 
@@ -180,29 +188,38 @@ for nn, irre in enumerate(spectrum_pred):
     # Plot thresholds
     for mm, particles in enumerate(thresholds):
         m1, m2 = particles.split('xx')
-        plt.axhline(y=masses[m1] + masses[m2], linestyle = '--', color=colors[particles], label= r'$' + names[m1] + names[m2] + '$')
+        axis.axhline(y=masses[m1] + masses[m2], linestyle = '--', color=colors[particles], lw=2, label= r'$' + names[m1] + names[m2] + '$')
 
     for eth in extrathresholds:
         axis.axhline(y= eth[0], linestyle = eth[1], color=eth[2], label=eth[3])
         
     # Plot amplitude result
-    plt.errorbar(spectrum_pred[irre][:,0], spectrum_pred[irre][:,1], yerr=spectrum_pred[irre][:,2], label = amplitude, ls='',
+    axis.errorbar(spectrum_pred[irre][:,0], spectrum_pred[irre][:,1], yerr=spectrum_pred[irre][:,2], label = amplitude, ls='',
                      marker='o', mec='orangered', fillstyle='none', ecolor='orangered',elinewidth=1,capsize=5*errorbarwidth/0.8,zorder=3)  
         
-        
-    axis.legend(loc="center right", bbox_to_anchor=(2, 0.5))
+    if label_plot:
+        axis.legend(loc="center right", bbox_to_anchor=(2, 0.5))
 
     axis.set_title(r'$P = ' + str(irreP) + r'$, ' + irreirrep)
     axis.set_ylim(energyrange)
     axis.set_xlim(Lrange)
-    plt.xticks(np.linspace(Lrange[0], Lrange[1], 3),
+    axis.set_xticks(np.linspace(Lrange[0], Lrange[1], 3),
                     [str(Lrange[0]),str(int((Lrange[0]+Lrange[1])/2)),str(Lrange[1])])
-    axis.set_xlabel(r'$L/a_s$')
-    axis.set_ylabel(r'$a_t\,E_\text{cm}$')
+    if label_plot:
+        axis.set_xlabel(r'$L/a_s$')
+        axis.set_ylabel(r'$a_t\,E_\text{cm}$')
 
-    plt.subplots_adjust(left=0.2)
-    plt.subplots_adjust(right=0.6)
-    # plt.subplots_adjust(bottom=0.13)
+        plt.subplots_adjust(left=0.2)
+        plt.subplots_adjust(right=0.6)
+        # plt.subplots_adjust(bottom=0.13)
 
-    plt.savefig("plots/" + irreirrep +'_'+ spec.vec2label(irreP) + '.pdf', transparent=True)
+        plt.savefig("plots/" + irreirrep +'_'+ spec.vec2label(irreP) + '.pdf', transparent=True)
+
+    else:
+        plt.subplots_adjust(left=0.23)
+
+        plt.savefig("plots/nl_" + irreirrep +'_'+ spec.vec2label(irreP) + '.pdf', transparent=True)
+
+
+    
         
