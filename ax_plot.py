@@ -11,6 +11,8 @@ import pandas as pd
 import subprocess as shell
 import sys
 from cycler import cycler
+sys.path.append("${HOME}/FVplotscripts")
+import iminuitwJK as mJK
 
 if len(sys.argv) < 3:
     raise Exception("Not enough arguments\n"+sys.argv[0]+" axfile state# [s:ave_w_tex]")
@@ -38,48 +40,62 @@ GREP = "grep"
 
 datalen = int(shell.run("grep '#e' " + axfile + " | wc -l", shell=True, capture_output=True).stdout)
 
+mode='Jackfitter'
+lineslen = 9
+
 if datalen == 12:
     print("axfile with data and unused data")
 elif datalen == 11:
     print("axfile only with data, no unused data")
+elif datalen == 6:
+    mode='eigen'
+    lineslen = 3
+    print("axfile from eigen")
 else:
-    raise Exception('There is not 9 lines , and 1 or 2 data used(unused) sets, but instead {0} sets of points'.format(datalen-1))
+    raise Exception('Jackfitter files have 9 lines and 1 or 2 data used(unused) sets,\
+     eigen has 3 lines and 2 data sets, but {1} has instead {0} sets of points'.format(datalen-1, axfile))
 
-for ii in range(datalen - 1):
+
+for ii in range(datalen ):
     shell.run([GNUPLOT, "-e", "set table 'out{0}.dat'; plot '{1}' i {0} with table".format(ii,axfile)])
 
 
-#out=shell.run('head -10 out*.dat', shell=True, capture_output=True)
-#print('a\n',out.stdout.decode('UTF-8'))
+# out=shell.run('head -10 out*.dat', shell=True, capture_output=True)
+# print(out.stdout.decode('UTF-8'))
 
 lines = []
-for i in range(9):
+for i in range(lineslen):
     lines.append(pd.read_csv('out{0}.dat'.format(i), delim_whitespace=True, names=['t','y']))
 
 
 data =[]
-data.append(pd.read_csv('out9.dat', delim_whitespace=True, names=['t','y','e']))
-if datalen > 11:
-    data.append(pd.read_csv('out10.dat', delim_whitespace=True, names=['t','y','e']))
+data.append(pd.read_csv('out{0}.dat'.format(lineslen), delim_whitespace=True, names=['t','y','e']))
+if datalen > 11 or mode=='eigen':
+    data.append(pd.read_csv('out{0}.dat'.format(lineslen+1), delim_whitespace=True, names=['t','y','e']))
 
 shell.run("rm out*.dat", shell=True)
 
 plt.subplots(1,1,figsize=(4.5,3))
 ax=plt.gca()
 
+color3first='C1'
+if mode == 'eigen':
+    color3first='C0'
+
 for ii in range(3):
-    lines[ii].plot(x='t',y='y',color='C1',ax=ax, lw=0.7)
+    lines[ii].plot(x='t',y='y',color=color3first,ax=ax, lw=0.7)
 
-for ii in range(6,9):
-    lines[ii].plot(x='t',y='y',color='C1',ax=ax, lw=0.7)
+if mode == 'Jackfitter':
+    for ii in range(6,9):
+        lines[ii].plot(x='t',y='y',color='C1',ax=ax, lw=0.7)
 
-for ii in range(3,6):
-    lines[ii].plot(x='t',y='y',color='C0',ax=ax, lw=0.7)
+    for ii in range(3,6):
+        lines[ii].plot(x='t',y='y',color='C0',ax=ax, lw=0.7)
 
 
 data[0].plot(x='t',y='y',yerr='e',color='C0',ax=ax,
     marker='s',ls='',fillstyle='none',capsize=3, ms=3)
-if datalen > 11:
+if datalen > 11 or mode=='eigen':
     data[1].plot(x='t',y='y',yerr='e',color='C1',ax=ax,
         marker='s',ls='',fillstyle='none',capsize=3, ms=3)
 
@@ -96,24 +112,49 @@ ylims = [float(y) for y in grepy[1:]]
 plt.xlim(xlims)
 plt.ylim(ylims)
 
-label = shell.run([GREP, "gx", axfile], capture_output=True).stdout.decode('UTF-8')
+if mode == 'Jackfitter':
+    label = shell.run([GREP, "gx", axfile], capture_output=True).stdout.decode('UTF-8')
 
 
-info0 = label.split(sep='"')
-#print(info0)
+    info0 = label.split(sep='"')
+    #print(info0)
 
-info1 = info0[1].split(sep='\gx\sp2\ep/N\sbdof\eb')
-info2 = info1[1].split(';')
-chiinfo = info2[0]
-if len(info2) > 1:
-    rest = info2[1]
-    restclean = rest.replace('\\+-', '\\pm')
-else:
-    restclean = "."
+    info1 = info0[1].split(sep='\gx\sp2\ep/N\sbdof\eb')
+    info2 = info1[1].split(';')
+    chiinfo = info2[0]
+    if len(info2) > 1:
+        rest = info2[1]
+        restclean = rest.replace('\\+-', '\\pm')
+    else:
+        restclean = "."
 
-fit_info = [
-    r'$\chi^2/\mathrm{dof}' + chiinfo + '$',
-    r'$' + restclean +'$']
+    fit_info = [
+        r'$\chi^2/\mathrm{dof}' + chiinfo + '$',
+        r'$' + restclean +'$']
+
+elif mode == 'eigen':
+
+    linenum = int(shell.run("grep -n '#cs 1' {0}".format(axfile) + " | sed 's/:/ /g' | awk '{print $1}'", shell=True, capture_output=True).stdout)
+    fit_info = []
+    label = []
+    chiinfo = ""
+    with open(axfile,'r') as f:
+        for nn, line in enumerate(f):
+            if nn >= linenum:
+                linewonl = line.rstrip('\n')
+
+                if chiinfo == "":
+                    chiinfo = linewonl.split(sep='\gx\sp2\ep/N\sbdof\eb')[1][:-2]
+                    fit_info.append(r'$\chi^2/\mathrm{dof}' + chiinfo + '$',)
+                else:
+                    # fit_info.append(r'$'+ linewonl.split('"')[1].replace('\\+-', '\\pm') + r'$')
+                    p, ve = linewonl.split('"')[1].split('=')
+                    v, e = ve.split('\\+-')
+                    v=float(v)
+                    e=float(e)
+                    fit_info.append(mJK.add_fit_info_ve(p,v,e))
+
+
 
 
 plt.legend('',title="\n".join(fit_info), loc='best')
@@ -123,6 +164,6 @@ plt.subplots_adjust(right=0.97)
 plt.subplots_adjust(bottom=0.16)
 
 if len(sys.argv) > 3 and sys.argv[3] == 's':
-    plt.savefig('prin_corr_t0'+str(t0l)+'_state'+str(sys.argv[2])+'.pdf',transparent=True)
+    plt.savefig('fit_state'+str(sys.argv[2])+'.pdf',transparent=True)
 else:
     plt.show()
