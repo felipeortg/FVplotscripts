@@ -385,7 +385,8 @@ def clean_calc_spectrum(dirty_spec, irrep, erange, chi, Lsize, Lwidth):
     Also move around the L-value when overlapping for clarity
     """
     temp_list = []
-    clean_spec = []
+    place = 0
+
 
     irreP = label2vec(irrep[:3])
 
@@ -396,10 +397,12 @@ def clean_calc_spectrum(dirty_spec, irrep, erange, chi, Lsize, Lwidth):
 
         if mass + unc > erange[0] and mass - unc < erange[1]: #leave only levels in the energy ranges
         
-            temp_list.append([Lsize, mass, unc])
+            temp_list.append([Lsize, mass, unc, place])
+            place += 1
 
             # print(mass + unc, erange[0], mass - unc ,erange[1], mass)
 
+    clean_spec = [None]*len(temp_list)
     # move around levels when overlapping
     while len(temp_list) > 0:
 
@@ -414,13 +417,14 @@ def clean_calc_spectrum(dirty_spec, irrep, erange, chi, Lsize, Lwidth):
 
         overlapping_lvls = len(overlaps)
         if overlapping_lvls == 1:
-            clean_spec.append(temp_list[0])
+            clean_spec[temp_list[0][3]] = (temp_list[0][:3])
 
         else:
             plotwidth = overlapping_lvls*Lwidth/2
             Lpositions = np.linspace(Lsize - plotwidth, Lsize + plotwidth, num = overlapping_lvls)
-            for nn, L in enumerate(Lpositions): 
-                clean_spec.append([L, temp_list[overlaps[nn]][1], temp_list[overlaps[nn]][2]])
+            for nn, L in enumerate(Lpositions):
+                pl = overlaps[nn]
+                clean_spec[temp_list[pl][3]] = [L, temp_list[pl][1], temp_list[pl][2]]
 
         overlaps.reverse()
 
@@ -432,10 +436,9 @@ def clean_calc_spectrum(dirty_spec, irrep, erange, chi, Lsize, Lwidth):
 
 
 def read_Ecm_ini(filename):
-    """ Read an Ecm_data.ini file and return the number of levels in each irrep """
+    """ Read an Ecm_data.ini file and return the level numbers in each irrep """
 
     # Fill this dict number of levels
-    # Assume that the irreps are consecutive
     levelsinirrep = dict()
 
 
@@ -445,10 +448,13 @@ def read_Ecm_ini(filename):
 
             irrep = elems[1] + '_' + elems[2]
 
+            if '(*)' in line: #starred levels in ecm ini are to be ignored
+                continue
+
             if irrep in levelsinirrep:
-                levelsinirrep[irrep] += 1
+                levelsinirrep[irrep].append(int(elems[3]))
             else:
-                levelsinirrep[irrep] = 1
+                levelsinirrep[irrep] = [int(elems[3])]
 
 
     return levelsinirrep

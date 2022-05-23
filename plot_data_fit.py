@@ -136,7 +136,7 @@ def get_plot_thr_range(irreirrep):
 # In[9]:
 
 try:
-    header = dataset.header
+    header = dataset.dataset
 except:
     header ='../../spectrum/data/'
 
@@ -149,6 +149,7 @@ spectrum_int = dict()
 print("Getting lattice data from: ", header)
 
 for irs in irreps_data:
+    print(irs)
     inter_file = header + irs + '/reconfit_out.txt'
 
     irrept, spectrumt, t0strt = spec.read_reconfit_file(inter_file)
@@ -159,13 +160,13 @@ for irs in irreps_data:
 
     spectrum_int[irrept] = spectrum
 
-
+    # print(inter_file, spectrumt, spectrum_int)
 # In[11]:
 
 print('Begin plots: ', list(spectrum_pred))
 for nn, irre in enumerate(spectrum_pred):
     print(irre)
-    print(spectrum_pred[irre])
+    # print(spectrum_pred[irre])
     irreP = spec.label2vec(irre[:3])
     irreirrep = irre[4:]
     
@@ -210,20 +211,23 @@ for nn, irre in enumerate(spectrum_pred):
         
         
     # Plot lattice data
+    # print(numoflev[irre])
+    labeled = False
     for nn,level in enumerate(spectrum_int[irre]):
         levcolor = 'k'
-
+        # print(level)
         try:
-            if nn >= numoflev[irre]:
+            if not nn in numoflev[irre]:
                 levcolor = 'grey'
         # if an irrep is not in the ecmdata it is because it was not used in the fit
         except KeyError:
             levcolor = 'grey'
         
-        if nn == 0:        
+        if (not labeled and levcolor == 'k') or (not labeled and nn-1 == len(spectrum_int[irre])):        
             plt.errorbar(level[0], level[1], yerr=level[2], 
                      marker='_', mec=levcolor, fillstyle='none', ecolor=levcolor, ls='',
-                     elinewidth=1,capsize=10*errorbarwidth/0.8,label = 'data', zorder=4)
+                     elinewidth=1,capsize=10*errorbarwidth/0.8, label = 'data', zorder=4)
+            labeled = True
         else:
             plt.errorbar(level[0], level[1], yerr=level[2], 
                      marker='_', mec=levcolor, fillstyle='none', ecolor=levcolor,

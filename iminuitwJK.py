@@ -119,6 +119,7 @@ def get_mask_from_noise(filename,nrcutoff):
 
 
 def maskdata(filename,mask=[]):
+    """ take File and return cfgs, npoints, xdata, ydata(ensemble), xmasked, ymasked(ensemble)"""
     cfgs, npoints, rawdata = read_Jack_file(filename)
 
     # Assume x data is fixed
@@ -797,7 +798,34 @@ def summarize_result(mean_fit, params_ense, mean_chi2, xdata, pretty_vars = []):
     return [mean_pars, np.diag(cov_pars)**(1/2)], cor_pars, fit_info
 
 
-        
+def summarize_result_corr(pars, mean_chi2, lenxdata, pretty_vars):
+    mean_pars = pars[0]
+    err_pars = pars[1]
+    cor_pars = pars[2]
+
+    cov_pars = np.copy(cor_pars)
+
+    for ii, err1 in enumerate(err_pars):
+        for jj, err2 in enumerate(err_pars):
+            cov_pars[ii,jj] *= err1*err2
+
+    ffit = len(mean_pars)
+
+    fit_info = [f"$\\chi^2$ / $n_\\mathrm{{dof}}$ = {mean_chi2:.1f} / ({lenxdata} - {ffit}) = {mean_chi2/(lenxdata - ffit):.2f}"]
+
+
+    names = pretty_vars
+
+    for p, v, e in zip(names, mean_pars, np.diag(cov_pars)**(1/2)):
+
+        fit_info.append(add_fit_info_ve(p, v, e))
+
+        # if np.round(e*1e3) == 0:
+        #     fit_info.append(f"${p} = {v:.3f} \\pm {e:.0e}$")
+        # else:
+        #     fit_info.append(f"${p} = {v:.3f} \\pm {e:.3f}$")
+
+    return [mean_pars, np.diag(cov_pars)**(1/2)], cor_pars, fit_info    
 
 
 
@@ -1105,8 +1133,14 @@ def add_labels_correlation(covax, filename, mask=[], **kwargs):
 
     for (j,i),label in np.ndenumerate(corr):
         col = np.abs(label)
+    col = np.abs(label)
+    
+    if col < 0.7:
+        covax.text(i,j,f"{label:.2f}",ha='center',va='center', c='k', **kwargs)
 
-        covax.text(i,j,f"{label:.2f}",ha='center',va='center', c=f"{col:.1f}", **kwargs)
+    else:
+        covax.text(i,j,f"{label:.2f}",ha='center',va='center', c='w', **kwargs)
+
 
     return 1
 
