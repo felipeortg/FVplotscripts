@@ -14,7 +14,7 @@ from cycler import cycler
 sys.path.append("${HOME}/FVplotscripts")
 import iminuitwJK as mJK
 
-if len(sys.argv) < 3:
+if len(sys.argv) < 2:
     raise Exception("Not enough arguments\n"+sys.argv[0]+" axfile state# [s:ave_w_tex]")
 
 colors_def = [
@@ -23,7 +23,7 @@ colors_def = [
     ]  
 default_cycler = cycler(color=colors_def) 
 
-if len(sys.argv) > 3 and sys.argv[3] == 's':
+if len(sys.argv) > 2 and sys.argv[2] == 's':
     plt.rc('text', usetex=True)
     plt.rc('text.latex', preamble=r'\usepackage{amsmath}')
     plt.rc('font', family='serif')
@@ -101,7 +101,7 @@ if datalen > 11 or mode=='eigen':
 
 
 plt.xlabel(r'$t/a_t$')
-plt.title('state ' + str(sys.argv[2]))
+# plt.title('state ' + str(sys.argv[2]))
 
 grepx = shell.run([GREP, "x ", axfile], capture_output=True).stdout.split()
 xlims = [float(x) for x in grepx[1:]]
@@ -163,7 +163,7 @@ plt.legend('',title="\n".join(fit_info), loc='best')
 plt.subplots_adjust(right=0.97)
 plt.subplots_adjust(bottom=0.16)
 
-if len(sys.argv) > 3 and sys.argv[3] == 's':
+if len(sys.argv) > 2 and sys.argv[3] == 's':
     plt.savefig('fit_state'+str(sys.argv[2])+'.pdf',transparent=True)
 else:
     plt.show()
