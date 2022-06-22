@@ -16,10 +16,20 @@ from iminuit import Minuit
 from iminuit.util import describe, make_func_code
 
 
-def read_Jack_file(filename):
+def read_Jack_file(filename, r_comp=0):
     """
     Read a Jack file from Roberts format: Ncfg Nt (0:r 1:c) 0 1
+    r_comp {
+        0 : real data
+        1 : comp data real part
+        2 : comp data imag part
+    }
     """
+
+    imag=0
+    if r_comp== 2:
+        r_comp=1
+        imag=1
 
     with open(filename, 'r') as f:
         # Fill this list with all our levels
@@ -32,22 +42,22 @@ def read_Jack_file(filename):
         for nn, row in enumerate(data):
             # print(row)
             if nn == 0:
-                try:
-                    cfgs, tl, comp = [int(row[0]), int(row[1]), int(row[2])] 
-                    print("There are {0} configs, with {1} timeslices each".format(cfgs,tl))
-                    if comp != 0:
-                        print("Not prepared for {0}".format(row))
-                        raise ValueError
-                except Exception as e:
-                    print("!!!  Error while reading header !!! \n{0}".format(row))
+                cfgs, tl, comp = [int(row[0]), int(row[1]), int(row[2])] 
+                print("There are {0} configs, with {1} timeslices each".format(cfgs,tl))
+                if comp != 0 and comp != 1:
+                    print("Not prepared for {0}".format(row))
                     print("Format should be: Ncfg Nt (0:r 1:c) 0 1")
-                    print("This reader only accepts real option")
-                    raise Exception
+                    raise ValueError
+
+                if comp != r_comp:
+                    print("The type of file does not match the requested read")
+                    print("File: {0}, requested {1}".format(comp,r_comp))
+                    raise ValueError
 
             else:
                 if count == 0:
                     thiscfgdata = []
-                thiscfgdata.append([int(row[-2]),float(row[-1])])
+                thiscfgdata.append([int(row[-2-comp]),float(row[-1-comp+imag])])
                 count += 1
 
                 if count == tl:
@@ -150,6 +160,18 @@ def maskdata(filename,mask=[]):
         print(f"{npoints} timeslices left after masking.")
     
     return cfgs, npoints, xdata, ydata, xmasked, np.transpose(np.array(ymasked))
+
+def get_data(filename, r_comp=0):
+    """ take File and return cfgs, npoints, xdata, ydata(ensemble), xmasked, ymasked(ensemble)"""
+    cfgs, npoints, rawdata = read_Jack_file(filename, r_comp)
+
+    # Assume x data is fixed
+    print("Assuming the xdata does not have configuration variation")
+    xdata = [rawdata[0][tt][0] for tt in range(npoints)]
+
+    ydata = np.array(rawdata)[:,:,1]
+    
+    return cfgs, npoints, xdata, ydata
 
 ###################
 ###################
