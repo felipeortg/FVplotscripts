@@ -162,7 +162,14 @@ def maskdata(filename,mask=[]):
     return cfgs, npoints, xdata, ydata, xmasked, np.transpose(np.array(ymasked))
 
 def get_data(filename, r_comp=0):
-    """ take File and return cfgs, npoints, xdata, ydata(ensemble), xmasked, ymasked(ensemble)"""
+    """ 
+    take File and return cfgs, npoints, xdata, ydata(ensemble)
+    r_comp {
+        0 : real data
+        1 : comp data real part
+        2 : comp data imag part
+    }
+    """
     cfgs, npoints, rawdata = read_Jack_file(filename, r_comp)
 
     # Assume x data is fixed
@@ -589,7 +596,7 @@ def p_significant_digits(num, p=1):
 def percent_significant_digits(num, percent=9):
     """ Write a number up to the significant digits
     that do not change its value more than the given percent
-    return number [1,10) and exponent and number of sd """
+    return number [1,10), exponent, and number of sd """
     if np.abs(percent - 50) >=  50:
         raise ValueError(f"percent should be in (0,100), not {percent}")
 
@@ -1011,45 +1018,115 @@ def plot_fromfile(filename, axs, nn=0, mask = []):
 
     if len(axs) > 2:
 
-        cov = covmatense(ydata, m_ydata)
         corr = cormatense(ydata, m_ydata)
 
         cmap = mpl.cm.RdBu_r
         norm = mpl.colors.Normalize(vmin=-1, vmax=1)
-        mat1 = axs[2].matshow(corr, cmap = cmap, norm = norm)
+
+        matrix_plot(axs[2], xdata, corr, cmap=cmap, norm=norm)
         
         axs[2].set_title('Correlation matrix')
-        plt.colorbar(mat1, ax=axs[2])
-
-        # Assume xdata is nicely ordered
-        if len(xdata) < 6:
-            dist = 1
-        else:
-            dist = np.floor(len(xdata)/6) 
-        ticks = range(0, len(xdata), int(dist))
-        tl = [str(xdata[t]) for t in ticks]
-
-        axs[2].set_xticks(ticks)
-        axs[2].set_xticklabels(tl)
-        axs[2].set_yticks(ticks)
-        axs[2].set_yticklabels(tl)
 
 
         if len(axs) > 3:
+            cov = covmatense(ydata, m_ydata)
 
-            mat2 = axs[3].matshow(np.log(np.abs(cov)))
+            matrix_plot(axs[3], xdata, np.log(np.abs(cov)))
+
             axs[3].set_title('Log |Covariance matrix|')
-            plt.colorbar(mat2, ax=axs[3])
-
-
-            axs[3].set_xticks(ticks)
-            axs[3].set_xticklabels(tl)
-            axs[3].set_yticks(ticks)
-            axs[3].set_yticklabels(tl)
 
 
 
     return out
+
+def corr_mat_from_file(filename, axs, mask = []):
+    """ Get the data from a file and plot
+    The correlation
+    option to mask the input data
+
+    Parameters
+    ----------
+    filename : string
+        The name of the file with the data
+
+    axs : plt axis
+        Axis where the plot is drawn
+
+    mask : list
+        x-values to be masked
+
+    Returns
+    -------
+    out : list
+        list of artists added to ax1
+    """
+
+    cfgs, npoints, xdata, ydata, xmasked, ymasked = maskdata(filename,mask )
+
+    print("---")
+    print("xdata, shape(ydata):")
+    print(str(len(xdata))+",",np.shape(ydata))
+    print("---")
+
+    m_ydata = meanense(ydata)
+
+    corr = cormatense(ydata, m_ydata)
+
+    cmap = mpl.cm.RdBu_r
+    norm = mpl.colors.Normalize(vmin=-1, vmax=1)
+
+    matrix_plot(axs, xdata, corr, cmap=cmap, norm=norm)
+    
+    axs.set_title('Correlation matrix')
+
+    return corr
+
+
+def matrix_plot(ax, xd, matrix, cmap=None, norm=None):
+    """
+    A helper function to make a matrix plot
+
+    Parameters
+    ----------
+    ax : Axes
+        The axes to draw to
+
+    xd : array
+       The x data
+
+    matrix : 2d array
+       The matrix to plot
+
+    cmap : colormap
+        defaults to None
+
+    norm : Normalize
+        defaults to None
+
+    Returns
+    -------
+    out : list
+        list of artists added
+    """
+
+    mat = ax.matshow(matrix, cmap = cmap, norm = norm)
+    
+    plt.colorbar(mat, ax=ax)
+
+    # Assume xdata is nicely ordered
+    if len(xd) < 6:
+        dist = 1
+    else:
+        dist = np.floor(len(xd)/6) 
+    ticks = range(0, len(xd), int(dist))
+    tl = [str(xd[t]) for t in ticks]
+
+    ax.set_xticks(ticks)
+    ax.set_xticklabels(tl)
+    ax.set_yticks(ticks)
+    ax.set_yticklabels(tl)
+
+    return mat
 
 
 def plot_data(ax, xd, yd, yerr, nn, **kwargs):
@@ -1089,7 +1166,6 @@ def plot_data(ax, xd, yd, yerr, nn, **kwargs):
     return out
 
 def plot_cfg_fromfile(filename, axs, nn=0, mask = [], plots = ['all']):
-
 
     cfgs, npoints, xdata, ydata, xmasked, ymasked = maskdata(filename,mask )
 
@@ -1164,10 +1240,24 @@ def add_labels_correlation(covax, filename, mask=[], **kwargs):
         covax.text(i,j,f"{label:.2f}",ha='center',va='center', c='w', **kwargs)
 
 
-    return 1
+def add_labels_matrix(ax, mat, **kwargs):
+    """
+    Write values of matrix in a matshow axis
+    
+    ax: Axis where matshow was used
+    mat: the values of the matrix in question
+    kwargs for the text
+    """
 
+    for (j,i),label in np.ndenumerate(mat):
+        if i < j:
+            continue
+        col = np.abs(label)    
+        if col < 0.7:
+            ax.text(i,j,f"{label:.2f}",ha='center',va='center', c='k', **kwargs)
 
-
+        else:
+            ax.text(i,j,f"{label:.2f}",ha='center',va='center', c='w', **kwargs)
 
 
 

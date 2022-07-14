@@ -23,7 +23,8 @@ colors_def = [
     ]  
 default_cycler = cycler(color=colors_def) 
 
-if len(sys.argv) > 2 and sys.argv[2] == 's':
+#if len(sys.argv) > 2 and sys.argv[2] == 's':
+if len(sys.argv) > 2:
     plt.rc('text', usetex=True)
     plt.rc('text.latex', preamble=r'\usepackage{amsmath}')
     plt.rc('font', family='serif')
@@ -56,9 +57,14 @@ else:
      eigen has 3 lines and 2 data sets, but {1} has instead {0} sets of points'.format(datalen-1, axfile))
 
 
-for ii in range(datalen ):
-    shell.run([GNUPLOT, "-e", "set table 'out{0}.dat'; plot '{1}' i {0} with table".format(ii,axfile)])
+for ii in range(datalen):
 
+    out = shell.run([GNUPLOT, "-e", "set table 'out{0}.dat'; plot '{1}' i {0} with table".format(ii,axfile)])
+
+    if(out.returncode == 1):
+        with open("out{0}.dat".format(ii), "w") as outfile:
+            shell.run(["echo","nan nan nan"],stdout=outfile)
+        
 
 # out=shell.run('head -10 out*.dat', shell=True, capture_output=True)
 # print(out.stdout.decode('UTF-8'))
@@ -163,7 +169,8 @@ plt.legend('',title="\n".join(fit_info), loc='best')
 plt.subplots_adjust(right=0.97)
 plt.subplots_adjust(bottom=0.16)
 
-if len(sys.argv) > 2 and sys.argv[3] == 's':
-    plt.savefig('fit_state'+str(sys.argv[2])+'.pdf',transparent=True)
+#if len(sys.argv) > 2 and sys.argv[2] == 's':
+if len(sys.argv) > 2:    
+    plt.savefig(str(sys.argv[2])+'.pdf',transparent=True, bbox_inches='tight')
 else:
     plt.show()
