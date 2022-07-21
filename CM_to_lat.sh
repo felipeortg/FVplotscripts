@@ -13,10 +13,10 @@ fi
 [[ ! -d Latt_spec ]] && mkdir Latt_spec
 
 for file in $@; do
-    awk '{print $1, $2,$3}' $file > tmp.tmp
+    awk '{print $1, $2,$3}' $file > /tmp/spec.tmp
     mom=`echo $file | sed 's/d//g' | sed 's/_/ /g' | awk '{print $2}'`
-    CM_to_lat_spectrum.py tmp.tmp $mom | tail +2 > Latt_spec/${file}_lat
+    CM_to_lat_spectrum.py /tmp/spec.tmp $mom | tail +2 > Latt_spec/${file}_lat
 done
 
-rm tmp.tmp
+rm /tmp/spec.tmp
 

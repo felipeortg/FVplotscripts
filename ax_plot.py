@@ -4,10 +4,11 @@
 # @Author  : Felipe G. Ortega-Gama (felipeortegagama@gmail.com)
 # @Version : 1.0
 # Use the data from the ax file to plot the pc
-# It requires a working installation of gnuplot and grep
+# It requires a working installation of awk, sed and grep
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import io
 import subprocess as shell
 import sys
 from cycler import cycler
@@ -36,10 +37,23 @@ plt.rc('axes', prop_cycle=default_cycler)
 
 axfile = str(sys.argv[1])
 
-GNUPLOT = "gnuplot"
 GREP = "grep"
+AWK = "awk"
+SED = "sed"
 
-datalen = int(shell.run("grep '#e' " + axfile + " | wc -l", shell=True, capture_output=True).stdout)
+def get_df(index, names):
+    sedcomm = SED + ' /#/d ' + axfile
+    awkcomm =AWK + ' -v RS="" '+"'{if (NR == "+'"{0}"'.format(index + 1)+") print $0 }' "
+    out = shell.run(sedcomm + " | " + awkcomm, 
+        shell=True, capture_output=True).stdout
+    
+    
+    file = io.StringIO(out.decode('UTF-8'))
+    
+    return pd.read_csv(file, delim_whitespace=True, names=names)
+    
+
+datalen = int(shell.run(GREP + " '#e' " + axfile + " | wc -l", shell=True, capture_output=True).stdout)
 
 mode='Jackfitter'
 lineslen = 9
@@ -55,31 +69,18 @@ elif datalen == 6:
 else:
     raise Exception('Jackfitter files have 9 lines and 1 or 2 data used(unused) sets,\
      eigen has 3 lines and 2 data sets, but {1} has instead {0} sets of points'.format(datalen-1, axfile))
-
-
-for ii in range(datalen):
-
-    out = shell.run([GNUPLOT, "-e", "set table 'out{0}.dat'; plot '{1}' i {0} with table".format(ii,axfile)])
-
-    if(out.returncode == 1):
-        with open("out{0}.dat".format(ii), "w") as outfile:
-            shell.run(["echo","nan nan nan"],stdout=outfile)
-        
-
-# out=shell.run('head -10 out*.dat', shell=True, capture_output=True)
-# print(out.stdout.decode('UTF-8'))
-
+    
 lines = []
-for i in range(lineslen):
-    lines.append(pd.read_csv('out{0}.dat'.format(i), delim_whitespace=True, names=['t','y']))
-
-
 data =[]
-data.append(pd.read_csv('out{0}.dat'.format(lineslen), delim_whitespace=True, names=['t','y','e']))
-if datalen > 11 or mode=='eigen':
-    data.append(pd.read_csv('out{0}.dat'.format(lineslen+1), delim_whitespace=True, names=['t','y','e']))
 
-shell.run("rm out*.dat", shell=True)
+for ii in range(lineslen):
+    lines.append(get_df(ii, names=['t','y']))
+    
+
+data.append(get_df(lineslen, names=['t','y','e']))
+if datalen > 11 or mode=='eigen':
+    data.append(get_df(lineslen+1, names=['t','y','e']))
+
 
 plt.subplots(1,1,figsize=(4.5,3))
 ax=plt.gca()
@@ -107,7 +108,10 @@ if datalen > 11 or mode=='eigen':
 
 
 plt.xlabel(r'$t/a_t$')
-# plt.title('state ' + str(sys.argv[2]))
+
+ 
+if len(sys.argv) > 2 and sys.argv[2] != 's':   
+    plt.title(str(sys.argv[2]))
 
 grepx = shell.run([GREP, "x ", axfile], capture_output=True).stdout.split()
 xlims = [float(x) for x in grepx[1:]]
@@ -162,15 +166,16 @@ elif mode == 'eigen':
 
 
 
-
+plt.grid(ls=':')
 plt.legend('',title="\n".join(fit_info), loc='best')
 
 #plt.subplots_adjust(left=0.15)
 plt.subplots_adjust(right=0.97)
 plt.subplots_adjust(bottom=0.16)
 
-#if len(sys.argv) > 2 and sys.argv[2] == 's':
-if len(sys.argv) > 2:    
+if len(sys.argv) > 2 and sys.argv[2] == 's':
+# if len(sys.argv) > 2:    
     plt.savefig(str(sys.argv[2])+'.pdf',transparent=True, bbox_inches='tight')
 else:
-    plt.show()
+    plt.show(block=True)
+

@@ -28,8 +28,15 @@ corr = nparray[:,1:]
 
 axs = mJK.plt.subplots()[1]
 
+maxval = np.max(np.abs(mm))
+
+# we normally plot correlations, but in case you plot things that are bigger
+# smaller things would not work, but then the purpose of this is nor clear...
+if maxval < 1:
+    maxval = 1
+
 cmap = mJK.mpl.cm.RdBu_r
-norm = mJK.mpl.colors.Normalize(vmin=-1, vmax=1)
+norm = mJK.mpl.colors.Normalize(vmin=-maxval, vmax=maxval)
 
 mJK.matrix_plot(axs, xdata, corr, cmap=cmap, norm=norm)
 
