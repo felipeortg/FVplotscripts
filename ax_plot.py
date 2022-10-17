@@ -16,7 +16,7 @@ sys.path.append("${HOME}/FVplotscripts")
 import iminuitwJK as mJK
 
 if len(sys.argv) < 2:
-    raise Exception("Not enough arguments\n"+sys.argv[0]+" axfile state# [s:ave_w_tex]")
+    raise Exception("Not enough arguments\n"+sys.argv[0]+" axfile [filename_to_save] [title:will not save] ")
 
 colors_def = [
     [2/255,103/255,253/255,1],
@@ -25,7 +25,7 @@ colors_def = [
 default_cycler = cycler(color=colors_def) 
 
 #if len(sys.argv) > 2 and sys.argv[2] == 's':
-if len(sys.argv) > 2:
+if len(sys.argv) == 3:
     plt.rc('text', usetex=True)
     plt.rc('text.latex', preamble=r'\usepackage{amsmath}')
     plt.rc('font', family='serif')
@@ -110,8 +110,8 @@ if datalen > 11 or mode=='eigen':
 plt.xlabel(r'$t/a_t$')
 
  
-if len(sys.argv) > 2 and sys.argv[2] != 's':   
-    plt.title(str(sys.argv[2]))
+if len(sys.argv) > 3:   
+    plt.title(str(sys.argv[3]))
 
 grepx = shell.run([GREP, "x ", axfile], capture_output=True).stdout.split()
 xlims = [float(x) for x in grepx[1:]]
@@ -173,9 +173,9 @@ plt.legend('',title="\n".join(fit_info), loc='best')
 plt.subplots_adjust(right=0.97)
 plt.subplots_adjust(bottom=0.16)
 
-if len(sys.argv) > 2 and sys.argv[2] == 's':
+if len(sys.argv) == 3:
 # if len(sys.argv) > 2:    
     plt.savefig(str(sys.argv[2])+'.pdf',transparent=True, bbox_inches='tight')
 else:
-    plt.show(block=True)
+    plt.show()
 
