@@ -25,9 +25,9 @@ echo "Assuming location of Ecm_ini in ./dataset"
 echo "Assuming interacting spectrum from scatdevel in FV_spec"
 
 
-cd "FV_spec"
-scatfiles=`ls *spectrum`
-cd ..
+# cd "FV_spec"
+scatfiles=`ls FV_spec/*spectrum`
+# cd ..
 
 echo "Plotting: " $scatfiles
 
