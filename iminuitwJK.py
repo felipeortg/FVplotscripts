@@ -50,9 +50,12 @@ def read_Jack_file(filename, r_comp=0):
                     raise ValueError
 
                 if comp != r_comp:
-                    print("The type of file does not match the requested read")
-                    print("File: {0}, requested {1}".format(comp,r_comp))
-                    raise ValueError
+                    err = []
+                    err.append("The type of file does not match the requested read")
+                    err.append("File: {0}, requested {1}".format(comp,r_comp))
+                    err.append("Use r_comp={0:real,1:real part of complex,2:imag part of complex")
+                    # print("\n".join(err))
+                    raise ValueError("\n".join(err))
 
             else:
                 if count == 0:
@@ -67,7 +70,35 @@ def read_Jack_file(filename, r_comp=0):
 
     return cfgs, tl, dataarray
 
-def prune_Jack_file(filename, pruned_cfgs):
+
+def write_Jack_file(newfile, dataarray, w_comp=0):
+    """
+    w_comp {
+        0 : real data
+        1 : comp data
+    }
+    """
+
+    cfgs, xlen = np.shape(dataarray)
+
+    xlist = np.arange(xlen)
+
+    with open(newfile, 'w') as f:
+        print("Writing a real valued ensemble in: " + newfile)
+        data = csv.writer(f, delimiter=' ') #change from default comma
+        data.writerow([cfgs, xlen, w_comp, 0, 1])
+
+        for datacfg in dataarray:
+            if w_comp:
+                data_w_x = [[x,data.real, data.imag] for x,data in zip(xlist,datacfg)]
+            else:
+                data_w_x = [[x,data] for x,data in zip(xlist,datacfg)]
+            for row in data_w_x:
+                data.writerow(row)
+
+    return newfile
+
+def prune_Jack_file(filename, pruned_cfgs, r_comp=0):
     """
     Read a Jack file from Roberts format: Ncfg Nt (0:r 1:c) 0 1
     Write it again without the pruned cfgs
@@ -77,7 +108,7 @@ def prune_Jack_file(filename, pruned_cfgs):
     else:
         newfile + '.pruned'
 
-    cfgs, tl, dataarray = read_Jack_file(filename)
+    cfgs, tl, dataarray = read_Jack_file(filename, r_comp)
 
     newcfgs = cfgs - len(pruned_cfgs)
 
@@ -103,9 +134,12 @@ def prune_Jack_file(filename, pruned_cfgs):
     return newfile
 
 
-def get_mask_from_noise(filename,nrcutoff):
+def get_mask_from_noise(filename,nrcutoff,r_comp=0):
+    """
+    provide a noise ratio cutoff to create a mask for timeslices surpassing that
+    """
 
-    cfgs, npoints, rawdata = read_Jack_file(filename)
+    cfgs, npoints, rawdata = read_Jack_file(filename, r_comp)
 
     # Assume x data is fixed
     print("Assuming the xdata does not have configuration variation")
@@ -128,9 +162,15 @@ def get_mask_from_noise(filename,nrcutoff):
     return mask
 
 
-def maskdata(filename,mask=[]):
-    """ take File and return cfgs, npoints, xdata, ydata(ensemble), xmasked, ymasked(ensemble)"""
-    cfgs, npoints, rawdata = read_Jack_file(filename)
+def maskdata(filename, mask=[], r_comp=0):
+    """ take File and return cfgs, npoints, xdata, ydata(ensemble), xmasked, ymasked(ensemble)
+    r_comp {
+        0 : real data
+        1 : comp data real part
+        2 : comp data imag part
+    }
+    """
+    cfgs, npoints, rawdata = read_Jack_file(filename, r_comp)
 
     # Assume x data is fixed
     print("Assuming the xdata does not have configuration variation")
@@ -241,14 +281,18 @@ def covmatense(ense, meanense, jackknifed = False):
 
 
 def cormatense(ense, meanense, jackknifed = False):
+    """Calculate the correlation of the data"""
 
     covmat = covmatense(ense, meanense, jackknifed)
 
-    sig = np.sqrt(np.diag(covmat))
+    return cov2cor(covmat)
+
+def cov2cor(cov):
+    sig = np.sqrt(np.diag(cov))
 
     sig2weight = np.array([[1/(s1*s2) for s1 in sig] for s2 in sig])
 
-    return covmat * sig2weight
+    return cov * sig2weight # this does element-wise multiplication of the arrays   
 
 
 def errormean(ense, meanense, jackknifed = False):
@@ -277,9 +321,65 @@ def errormean(ense, meanense, jackknifed = False):
                                 
     return (sigma)**(1/2)
 
+def calc(ense, jackknifed = False):
+
+    mean = meanense(ense)
+    err = errormean(ense, mean, jackknifed)
+
+    return np.array([mean, err])
+
+def get_mean_error_array(list_of_JK_ensems):
+
+    me_arr = []
+
+    for JK in list_of_JK_ensems:
+
+        mean = meanense(JK)
+
+        error = errormean(JK,mean)
+
+        me_arr.append([mean[0], error[0]])
+
+    return np.array(me_arr)
+
+def combine_ensemble_list(list_of_ensems):
+    """ take a list of 1-dim arrays, eg from get_data, and put them into a ensemble array shape (confs, indep_index) """
+
+    return np.transpose(np.array(list_of_ensems)[:,:,0])
+
+def change_mean_error(ensem, mean=None, error=None, jackknifed = False):
+    """ Change the mean and/ or error of an ensemble
+    the procedure is identical whether the ensemble is scaled up or down
+    but add the jackknifed option for consistency with other macros
+     """
+
+
+    if mean == None and error == None:
+        return ensem
+
+    orig_mean = meanense(ensem)
+    orig_err = errormean(ensem, orig_mean)
+
+    if mean == None:
+        new_mean = orig_mean
+    else:
+        new_mean = mean
+
+    if error == None:
+        ratio_err = 1
+    else:
+        ratio_err = error/orig_err
+
+
+    return ratio_err*(ensem - orig_mean) + new_mean
+
+
+
+
 def ensemble_op(fun, ensemble, jackknifed = False):
     """Do an operation over an ensemble with jackknife statistics
-    always return the upscale ensemble, but can receive a down scaled ensemble """
+    always return the upscale ensemble, but can receive a down scaled ensemble
+    """
 
     if not jackknifed:
         ensedown = jackdown(ensemble)
@@ -308,7 +408,16 @@ def two_ensemble_op(operation, ensemble1, ensemble2, jackknifed = False):
 
 def td_ensemble_op(td_fun, operation, xd, ensemble, jackknifed = False):
     """Do a time-dependant operation(fun(t), ens(t)) over an ensemble with jackknife statistics
-    always return the upscale ensemble, but can receive a downscaled ensemble """
+    always return the upscale ensemble, but can receive a downscaled ensemble 
+    
+    Example of an td_fun operation
+    def td_fun(t):
+        tmin = 3
+        mass = .2612
+        t0 = 10
+        
+        return np.exp(mass*((t+tmin)-t0))
+    """
 
     if not jackknifed:
         ensedown = jackdown(ensemble)
@@ -326,17 +435,6 @@ def td_ensemble_op(td_fun, operation, xd, ensemble, jackknifed = False):
     return jackup(op_ense)
         
 
-# Example of an ensemble operation
-# def expmult(jkarray):
-#     npoints = np.shape(jkarray)[1]
-    
-#     factor = [np.exp(.2612*((t+tmin)-10)) for t in range(npoints)]
-    
-#     cfgs = np.shape(jkarray)[0]
-    
-#     factorjk = np.array([factor for i in range(cfgs)])
-    
-#     return factorjk*jkarray
 
 
 def mprint(mat,round=100):
@@ -386,42 +484,54 @@ def do_fit_limits(model, xd, yd, invcov, limits, **kwargs):
 
     return m
 
-def fit_data(xdata, ydata, fun, verb = 0, **kwargs):
+def fit_data_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, fitfun=dict(fitfun="do_fit"), verb = 0, **kwargs):
+    """
+    Perform a JK fit to ydata=fun(xdata)
+    covariance matrix is provided as input
+    provide the initial value of the fit parameters as kwargs
+    """
 
-    # print(xdata,ydata)
-
-    m_ydata = meanense(ydata)
-
-    cov_ydata = covmatense(ydata, m_ydata)
+    ydata, m_ydata = ydata_and_m
 
     if verb > 1:
         print("Mean of data, and size of cov matrix")
         print(m_ydata)
-        print(np.shape(cov_ydata))
+        print(np.shape(inv_cov_ydata))
         print("-------")
 
     if verb > 2:
         print("Cov matrix")
-        mprint(cov_ydata,1e9)
+        mprint(np.linalg.inv(inv_cov_ydata),1e9)
         print("-------")
+        print(np.linalg.svd(inv_cov_ydata,compute_uv=False))
+        print("-------")
+        print(1/np.linalg.svd((covmatense(ydata, m_ydata)),compute_uv=False))
 
     
     if verb > 0:
         print("Correlation matrix of the data")
         mprint(cormatense(ydata, m_ydata))
+
+        print("-------")     
+        print("Correlation matrix used for the fit")
+        mprint(cov2cor(np.linalg.inv(inv_cov_ydata)))
         print("-------")
 
-    # Invert the covariance matrix
-    try:
-        inv_cov_ydata=np.linalg.inv(cov_ydata)
-    except:
-        print("Eigenvalues of the covariance matrix should be non-zero, and by def positive")
-        print(np.linalg.eigvalsh(cov_ydata))
-        raise Exception('Inversion of covariance data failed')
 
     # Do fit to mean to get priors
+    try:
+        # Two types of fit so far, can extend it arbitrarily
+        if fitfun["fitfun"] == "do_fit" :
+            mean_fit = do_fit(fun, xdata, m_ydata, inv_cov_ydata, **kwargs)
+        elif fitfun["fitfun"] == "do_fit_limits":
+            mean_fit = do_fit_limits(fun, xdata, m_ydata, inv_cov_ydata, fitfun["limits"] **kwargs)
+        else:
+            raise ValueError("Fit supported for generic do_fit, and do_fit_limits")
 
-    mean_fit = do_fit(fun, xdata, m_ydata, inv_cov_ydata, **kwargs)
+    except Exception as e:
+        print(e)
+        raise Exception("Fix the above exception in fitfun to proceed to the fit")
+
 
     if not mean_fit.valid:
         print(mean_fit)
@@ -445,7 +555,11 @@ def fit_data(xdata, ydata, fun, verb = 0, **kwargs):
     failed = 0
 
     for nn, jk_y in enumerate(y_down):
-        m = do_fit(fun, xdata, jk_y, inv_cov_ydata, **priordict)
+        # already checked the types in the dictionary, no need to add "try:" here
+        if fitfun["fitfun"] == "do_fit" :
+            m = do_fit(fun, xdata, jk_y, inv_cov_ydata, **priordict)
+        elif fitfun["fitfun"] == "do_fit_limits":
+            m = do_fit_limits(fun, xdata, jk_y, inv_cov_ydata, fitfun["limits"] **priordict)
 
         if m.valid:
             chi2.append(m.fval)
@@ -462,96 +576,127 @@ def fit_data(xdata, ydata, fun, verb = 0, **kwargs):
 
     params_up = jackup(paramsjk)
 
-
-    chi2_up = jackup(chi2)
-    mean_chi2 = meanense(chi2_up)
+    # the average is independent of whether or not the ensemble is scaled up or down
+    # chi2_up = jackup(chi2)
+    mean_chi2 = meanense(chi2)
 
 
     return mean_fit, params_up, mean_chi2
 
+def invert_cov(cov_ydata, svd_reset=None):
+
+    if svd_reset != None:
+        
+        u, s, vh = np.linalg.svd(cov_ydata, hermitian = True)
+
+        cor_ydata = cov2cor(cov_ydata)
+        scor = np.linalg.svd(cor_ydata, compute_uv=False, hermitian = True)
+
+        s_reset = np.zeros(len(s))
+
+        if "num_reset" in svd_reset:
+
+            kept_svds = len(s) - svd_reset["num_reset"]
+ 
+            # get the ratio reset to use later
+            if kept_svds == len(s):
+                svd_reset["rat_reset"] = 0
+            else:
+                svd_reset["rat_reset"] = scor[kept_svds]/scor[0]
+
+            if kept_svds < 1:
+                raise Exception("Cannot remove {0} singular values, the dof are only {1}".format(svd_reset["num_reset"], len(s)))
+
+            s_reset[:kept_svds] = 1/s[:kept_svds]
+
+        elif "rat_reset" in svd_reset:
+            s_reset[0] = [1./s[0]]
+            kept_svds = 1
+            for nn, sing_val in enumerate(scor[1:]):
+                if sing_val/scor[0] > svd_reset["rat_reset"]:
+                    kept_svds += 1
+                    s_reset[nn+1] = 1/s[1+nn]
+                else:
+                    break
+
+            svd_reset["num_reset"] = len(s) - kept_svds
+
+        else:
+            raise ValueError(
+            """
+            svd_reset only has:
+            * num_reset: keep the n largest singular values
+            * rat_reset: keep singular values above a ratio wrt the largest value
+            """)
+
+        inv_cov_ydata = u @ np.diag(s_reset) @ vh  
+
+    else:
+        # Invert the covariance matrix
+        try:
+            inv_cov_ydata=np.linalg.inv(cov_ydata)
+        except:
+            print("Eigenvalues of the covariance matrix should be non-zero, and by def positive")
+            print(np.linalg.eigvalsh(cov_ydata))
+            raise Exception('Inversion of covariance data failed')
+
+    return inv_cov_ydata
+
+def fit_data(xdata, ydata, fun, verb = 0, **kwargs):
+    """
+    Perform a JK fit to ydata=fun(xdata) using the ydata ensemble to calculate covariance
+    provide the initial value of the fit parameters as kwargs
+    """
+    # print(xdata,ydata)
+    m_ydata = meanense(ydata)
+
+    cov_ydata = covmatense(ydata, m_ydata)
+
+    return fit_data_input_cov(xdata, (ydata, m_ydata), fun, invert_cov(cov_ydata), verb=verb, **kwargs)
 
 def fit_data_limits(xdata, ydata, fun, limits, verb = 0, **kwargs):
-
-    # print(xdata,ydata)
+    """
+    Perform a JK fit to ydata=fun(xdata) using the ydata ensemble to calculate covariance
+    provide the initial value of the fit parameters as kwargs
+    provide limits as a list of [low,high] in parameter order, use None for no limit
+    """
 
     m_ydata = meanense(ydata)
 
     cov_ydata = covmatense(ydata, m_ydata)
 
-    if verb > 1:
-        print("Mean of data, and size of cov matrix")
-        print(m_ydata)
-        print(np.shape(cov_ydata))
-        print("-------")
+    fitfun = dict(fitfun="do_fit",limits=limits)
 
-    if verb > 2:
-        print("Cov matrix")
-        mprint(cov_ydata,1e9)
-        print("-------")
+    return fit_data_input_cov(xdata, (ydata, m_ydata), fun, invert_cov(cov_ydata), fitfun=fitfun, verb=verb, **kwargs)
 
-    
-    if verb > 0:
-        print("Correlation matrix of the data")
-        mprint(cormatense(ydata, m_ydata))
-        print("-------")
+def fit_data_diag_cov(xdata, ydata, fun, verb = 0, **kwargs):
+    """
+    Perform a JK fit to ydata=fun(xdata) using the diagonal elements of the covariance matrix
+    provide the initial value of the fit parameters as kwargs
+    """
+    # print(xdata,ydata)
 
-    # Invert the covariance matrix
-    try:
-        inv_cov_ydata=np.linalg.inv(cov_ydata)
-    except:
-        print("Eigenvalues of the covariance matrix should be non-zero, and by def positive")
-        print(np.linalg.eigvalsh(cov_ydata))
-        raise Exception('Inversion of covariance data failed')
+    m_ydata = meanense(ydata)
 
-    # Do fit to mean to get priors
+    cov_ydata = np.diag(np.diag(covmatense(ydata, m_ydata)))
 
-    mean_fit = do_fit_limits(fun, xdata, m_ydata, inv_cov_ydata, limits, **kwargs)
+    fitfun = dict(fitfun="do_fit")
 
-    if not mean_fit.valid:
-        print(mean_fit)
-        raise Exception("The fit to the mean data was not valid")
+    return fit_data_input_cov(xdata, (ydata, m_ydata), fun, invert_cov(cov_ydata), verb=verb, **kwargs)
 
-    if verb > 0:
-        print("Fit to the mean result:")
-        print(mean_fit)
-        print("-------")
+def fit_data_svd(xdata, ydata, fun, svd_reset, verb = 0, **kwargs):
+     """
+     Perform a JK fit to ydata=fun(xdata) using svd resetting of the covariance matrix
+     provide the initial value of the fit parameters as kwargs
+     svd
+     """
 
-    priors = mean_fit.values
-    priordict = {}
-    for nn, ele in enumerate(mean_fit.parameters):
-        priordict[ele] = priors[nn]
-
-    # Do fit to each Jackknife sample
-    y_down = jackdown(ydata)
-
-    chi2 = []
-    paramsjk = []
-    failed = 0
-
-    for nn, jk_y in enumerate(y_down):
-        m = do_fit_limits(fun, xdata, jk_y, inv_cov_ydata, limits, **priordict)
-
-        if m.valid:
-            chi2.append(m.fval)
-            paramsjk.append(m.values)
-        else:
-            failed += 1
-            print("The fit {0} did not converge".format(nn))
-            print(jk_y)
-            print(m)
-            print("-------")
-
-    siz = ydata.shape[0]
-    print("{0} out of {1} JK fits successful".format(siz-failed,siz))
-
-    params_up = jackup(paramsjk)
+     m_ydata = meanense(ydata)
+     cov_ydata = covmatense(ydata, m_ydata)
 
 
-    chi2_up = jackup(chi2)
-    mean_chi2 = meanense(chi2_up)
+     return fit_data_input_cov(xdata, (ydata, m_ydata), fun, invert_cov(cov_ydata, svd_reset), verb=verb, **kwargs)
 
-
-    return mean_fit, params_up, mean_chi2
 
 def order_number(number, p = 1):
     """ Get the order of a number given p significant digits 
@@ -801,14 +946,17 @@ def add_fit_info_ve(p, v, e):
     return fit_info
 
 
-def summarize_result(mean_fit, params_ense, mean_chi2, xdata, pretty_vars = []):
+def summarize_result(mean_fit, params_ense, mean_chi2, xdata, pretty_vars = [], svd_reset=None):
     mean_pars = meanense(params_ense)
     cov_pars = covmatense(params_ense,mean_pars)
     cor_pars = cormatense(params_ense,mean_pars)
 
-
-    fit_info = [f"$\\chi^2$ / $n_\\mathrm{{dof}}$ = {mean_chi2:.1f} / ({len(xdata)} - {mean_fit.nfit}) = {mean_chi2/(len(xdata) - mean_fit.nfit):.2f}"]
-
+    if svd_reset == None or svd_reset["num_reset"]==0:
+        fit_info = [f"$\\chi^2 / n_\\mathrm{{dof}} = {mean_chi2:.1f} / ({len(xdata)} - {mean_fit.nfit}) = {mean_chi2/(len(xdata) - mean_fit.nfit):.2f}$"]
+    else:
+        rmv_dof = svd_reset["num_reset"]
+        fit_info = [f"$\\chi^2 / n_\\mathrm{{dof}} = {mean_chi2:.1f} / ([{len(xdata)} - {rmv_dof}] - {mean_fit.nfit}) = {mean_chi2/(len(xdata) - rmv_dof - mean_fit.nfit):.2f}$"]
+        
 
     names = mean_fit.parameters
 
@@ -868,6 +1016,11 @@ def dummy_factor(x):
     return 1
 
 def plot_line_model(ax, lab, nn, xd, model, params_ense, factor=dummy_factor):
+    """
+    Plot the value of a model
+    input: axes, label, nn: color number, xd: min and max to get range, model function, params ensemble, [factor in xspace]
+
+    """
 
     xarr = np.linspace(min(xd), max(xd), num=100)
 
@@ -885,6 +1038,29 @@ def plot_line_model(ax, lab, nn, xd, model, params_ense, factor=dummy_factor):
 
     out = ax.fill_between(xarr, mean_pred-error_pred, mean_pred+error_pred, alpha=0.5, color = 'C'+str(nn), ec =None)
     out = ax.plot(xarr, mean_pred, c = 'C'+str(nn),label=lab, lw=1, zorder=1)
+
+    return out
+
+def plot_line_model_mean(ax, lab, nn, xd, model, params_ense, factor=dummy_factor):
+    """
+    Plot the value of a model
+    input: axes, label, nn: color number, xd: min and max to get range, model function, params ensemble, [factor in xspace]
+
+    """
+
+    xarr = np.linspace(min(xd), max(xd), num=100)
+
+    paramsjk = jackdown(params_ense)
+
+    pred = []
+    for paramset in paramsjk:
+        pred.append([model(xval, *paramset) * factor(xval) for xval in xarr])
+
+    predup = jackup(pred)
+
+    mean_pred = meanense(predup)
+
+    out = ax.plot(xarr, mean_pred, c = 'C'+str(nn),label=lab, lw=0.6, zorder=1)
 
     return out
 
@@ -917,7 +1093,7 @@ def print_line_model(xd, model, params_ense, factor=dummy_factor):
 
 def get_line_model(xd, model, params_ense, factor=dummy_factor):
     """
-    Return the value of a model
+    Return the value of a model at xd from the ensem of parameters
     input: xarray, model function, params ensemble, [factor in xspace]
 
     """
@@ -1039,7 +1215,7 @@ def plot_fromfile(filename, axs, nn=0, mask = []):
 
     return out
 
-def corr_mat_from_file(filename, axs, mask = []):
+def corr_mat_from_file(filename, axs, mask = [], label_all=False):
     """ Get the data from a file and plot
     The correlation
     option to mask the input data
@@ -1075,14 +1251,14 @@ def corr_mat_from_file(filename, axs, mask = []):
     cmap = mpl.cm.RdBu_r
     norm = mpl.colors.Normalize(vmin=-1, vmax=1)
 
-    matrix_plot(axs, xdata, corr, cmap=cmap, norm=norm)
+    matrix_plot(axs, xdata, corr, cmap=cmap, norm=norm, label_all=label_all)
     
     axs.set_title('Correlation matrix')
 
     return corr
 
 
-def matrix_plot(ax, xd, matrix, cmap=None, norm=None):
+def matrix_plot(ax, xd, matrix, cmap=None, norm=None, label_all=False):
     """
     A helper function to make a matrix plot
 
@@ -1103,6 +1279,9 @@ def matrix_plot(ax, xd, matrix, cmap=None, norm=None):
     norm : Normalize
         defaults to None
 
+    If you need to rotate labels try:
+    ax.set_xticklabels([str(xd[t]) for t in ax.get_xticks()] rotation=45, ha='left')
+
     Returns
     -------
     out : list
@@ -1114,7 +1293,7 @@ def matrix_plot(ax, xd, matrix, cmap=None, norm=None):
     plt.colorbar(mat, ax=ax)
 
     # Assume xdata is nicely ordered
-    if len(xd) < 6:
+    if len(xd) < 6 or label_all:
         dist = 1
     else:
         dist = np.floor(len(xd)/6) 
@@ -1128,6 +1307,34 @@ def matrix_plot(ax, xd, matrix, cmap=None, norm=None):
 
     return mat
 
+
+def correlation_plot(ax, xd, corr, label_all=False):
+    """
+    A helper function to make a matrix plot
+
+    Parameters
+    ----------
+    ax : Axes
+        The axes to draw to
+
+    xd : array
+       The x data
+
+    corr : 2d array
+       The correlation matrix to plot
+
+    Returns
+    -------
+    out : list
+        list of artists added
+    """
+
+    cmap = mpl.cm.RdBu_r
+    norm = mpl.colors.Normalize(vmin=-1, vmax=1)
+
+    out = matrix_plot(ax, xd, corr, cmap=cmap, norm=norm, label_all=label_all)
+
+    return out
 
 def plot_data(ax, xd, yd, yerr, nn, **kwargs):
     """
@@ -1220,6 +1427,12 @@ def plot_cfg_fromfile(filename, axs, nn=0, mask = [], plots = ['all']):
     return axs[0]
 
 def add_labels_correlation(covax, filename, mask=[], **kwargs):
+    """
+    Write values of matrix in a matshow axis when plotting correlation directly from a file
+    ax: Axis where matshow was used
+    mat: the values of the matrix in question
+    kwargs for the text
+    """
 
     cfgs, npoints, xdata, ydata, xmasked, ymasked = maskdata(filename,mask )
     m_ydata = meanense(ydata)
@@ -1230,35 +1443,55 @@ def add_labels_correlation(covax, filename, mask=[], **kwargs):
     corr = cormatense(ydata, m_ydata)
 
     for (j,i),label in np.ndenumerate(corr):
+        if i < j:
+            continue
         col = np.abs(label)
-    col = np.abs(label)
-    
-    if col < 0.7:
-        covax.text(i,j,f"{label:.2f}",ha='center',va='center', c='k', **kwargs)
+        
+        
+        if col < 0.7:
+            covax.text(i,j,f"{label:.2f}",ha='center',va='center', c='k', **kwargs)
 
-    else:
-        covax.text(i,j,f"{label:.2f}",ha='center',va='center', c='w', **kwargs)
+        else:
+            covax.text(i,j,f"{label:.2f}",ha='center',va='center', c='w', **kwargs)
 
 
-def add_labels_matrix(ax, mat, **kwargs):
+def add_labels_matrix(ax, mat, sym=True, hide_diag=False, **kwargs):
     """
     Write values of matrix in a matshow axis
-    
     ax: Axis where matshow was used
     mat: the values of the matrix in question
     kwargs for the text
     """
 
     for (j,i),label in np.ndenumerate(mat):
-        if i < j:
+        if i < j and sym:
             continue
-        col = np.abs(label)    
+        if i == j and hide_diag:
+            continue
+        col = np.abs(label)
+        # Some aesthetic, we dont need 1.00, 1 is enough, we dont need 0.7 or -0.7, .7 and -.7
+        text = f"${label:.2f}$".replace("0.", ".").replace("1.00","1").replace("-.00","0").replace("-0","0")
         if col < 0.7:
-            ax.text(i,j,f"{label:.2f}",ha='center',va='center', c='k', **kwargs)
+            ax.text(i,j,text,ha='center',va='center', c='k', **kwargs)
 
         else:
-            ax.text(i,j,f"{label:.2f}",ha='center',va='center', c='w', **kwargs)
+            ax.text(i,j,text,ha='center',va='center', c='w', **kwargs)
+
+"""
+An idea for a image of the fit summary:
+fit_info = []
+fit_info.extend(summ[-1])
+axs[0].text(0,.5,"\n".join(fit_info), transform=ax.transAxes, bbox=dict(ec='None',fc="None"), ha='left', va='center')
 
 
+An idea fro the correlation plots
+
+axs[0].axis('off')
+
+mJK.correlation_plot(axs[1], ["$"+var+"$" for var in ppvars], summ[1])
+axs[1].set_yticklabels("")
+
+mJK.add_labels_matrix(axs[1], summ[1], size=12)
+"""
 
 
