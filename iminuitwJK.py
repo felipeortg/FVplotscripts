@@ -326,7 +326,7 @@ def calc(ense, jackknifed = False):
     mean = meanense(ense)
     err = errormean(ense, mean, jackknifed)
 
-    return np.array([mean, err])
+    return np.transpose([mean, err])
 
 def get_mean_error_array(list_of_JK_ensems):
 

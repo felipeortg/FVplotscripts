@@ -50,7 +50,7 @@ def init_lattice_props(lattname):
     global energyrangem, energyrangep, energyrangemp, errorbarwidth
 
     # Parameters of the L=24 a_856 lattice
-    if lattname[:8] == '24_a856_':
+    if lattname[:7] == '24_a856':
 
 
         # TABLE I of 1904.03188
@@ -112,7 +112,7 @@ def init_lattice_props(lattname):
 
 
 
-        if lattname[8:] == 'IG_1p':
+        if lattname[7:] == '_IG_1p':
             thresholdsm = ['pixxpi','kaonxxkbar','pixxomega','pixxphi']
             thresholdsp = ['pixxomega','pixxphi']
             thresholdsmp = thresholdsm
@@ -133,7 +133,7 @@ def init_lattice_props(lattname):
 
             free_file_sca = drive_loc + 'Documents/JLab/time_like_form_factor/scattering_24_a856/free_levels/free_levels_scattering_devel_mod.txt'
 
-        elif lattname[8:] == 'IG_1o2':
+        elif lattname[7:] == '_IG_1o2':
             thresholdsm = ['pixxkaon','etaxxkaon']
             thresholdsp = []
             thresholdsmp = thresholdsm
