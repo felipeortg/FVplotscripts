@@ -524,7 +524,7 @@ def fit_data_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, fitfun=dict(fitfu
         if fitfun["fitfun"] == "do_fit" :
             mean_fit = do_fit(fun, xdata, m_ydata, inv_cov_ydata, **kwargs)
         elif fitfun["fitfun"] == "do_fit_limits":
-            mean_fit = do_fit_limits(fun, xdata, m_ydata, inv_cov_ydata, fitfun["limits"] **kwargs)
+            mean_fit = do_fit_limits(fun, xdata, m_ydata, inv_cov_ydata, fitfun["limits"], **kwargs)
         else:
             raise ValueError("Fit supported for generic do_fit, and do_fit_limits")
 
@@ -559,7 +559,7 @@ def fit_data_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, fitfun=dict(fitfu
         if fitfun["fitfun"] == "do_fit" :
             m = do_fit(fun, xdata, jk_y, inv_cov_ydata, **priordict)
         elif fitfun["fitfun"] == "do_fit_limits":
-            m = do_fit_limits(fun, xdata, jk_y, inv_cov_ydata, fitfun["limits"] **priordict)
+            m = do_fit_limits(fun, xdata, jk_y, inv_cov_ydata, fitfun["limits"], **priordict)
 
         if m.valid:
             chi2.append(m.fval)
@@ -665,7 +665,16 @@ def fit_data_limits(xdata, ydata, fun, limits, verb = 0, **kwargs):
 
     cov_ydata = covmatense(ydata, m_ydata)
 
-    fitfun = dict(fitfun="do_fit",limits=limits)
+    num_lim = 0
+    for limit in limits:
+        if limit != None:
+            num_lim +=1
+
+
+    if num_lim:
+        fitfun = dict(fitfun="do_fit_limits",limits=limits)
+    else:
+        fitfun = dict(fitfun="do_fit")
 
     return fit_data_input_cov(xdata, (ydata, m_ydata), fun, invert_cov(cov_ydata), fitfun=fitfun, verb=verb, **kwargs)
 
@@ -773,176 +782,157 @@ def percent_significant_digits(num, percent=9):
     return val1, order1, digits
 
 
-def add_fit_info_ve(p, v, e):
+def add_fit_info_ve(p, value, error):
     """
-    Get a formatted string of the form p = v(e) or p = v +/- e
+    Get a formatted string of the form p = value(error) or p = value +/- error
     where p is the name of the variable
-    v is value, e is error
     """
-
-    if e >= np.abs(v):
-        # get value to 9% significance
-        vsd, vord, vp = percent_significant_digits(v, percent=9)
-
-        # Use 2 significant digits for error
-        e2sd = p_significant_digits(e, 2)
-        errd = 2
-        # could have a trailing zero in the error
-        if (e2sd * 10)%10 == 0:
-            errd = 1
-
-        eord = order_number(e, 2)
-
-        # numbers that need scientific notation
-        if vord > 2 or vord < -3:
-            if vord == eord:
-                # separate into +/- if same order, e.g. 2.1 +/- 1.1
-
-                fit_info = f"${p} = ({vsd:.{vp-1}f} \\pm {e2sd:.{errd-1}f})\\times 10^{{{vord}}}$"
-
+    
+    if np.abs(value) >= error:
+        
+        # round error to 9% significance
+        esd, eord, errd = percent_significant_digits(error, 9)
+        
+        # round value to the nearest integer in (order of the error minus 1)
+        valround = np.round(value / 10**(eord - 1)) * 10**(eord - 1)
+        vord = int(np.floor(np.log10(valround)))
+        vsd = valround/10**vord
+        
+        # the number of signigicant digits should be the order difference + 2
+        vald = vord - eord + 2
+        # except if there are zeros to the right, those should not count as vald
+        for order in range(eord-1,vord):
+            if np.floor(valround/10**order) % 10 == 0: 
+                vald -= 1
             else:
-                # with error order bigger than value we can do
-                e2sd = e2sd * 10 ** (eord - vord)
-                fit_info = f"${p} = {vsd:.0f}({e2sd:.0f})\\times 10^{{{vord}}}$"
+                break    
+        # print(vsd, vord, vald)
+        # print(esd, eord, errd)
+        
+        # scientific notation
+        if vord > 2 or -3 > vord:
+             
+            # p/m notation when same order and either has more than 1 digit
+            if vord == eord and vald*errd != 1:
+                fit_info = f"${p} = ({vsd:.{vald-1}f} \\pm {esd:.{errd-1}f})\\times 10^{{{vord}}}$"
 
-        # formats without scientific notation
+            # shorthand notation for all other cases
+            else:
+                # have value with as many decimals as the maximum of val or error (wrt vord)
+                decimals = max(vord + vald - vord - 1, vord + errd - eord - 1)
+
+                # if error has more than 1 digit
+                # or the value decimals exceed the error last digit position, by def at most by 1
+                # multiply the esd by 10
+                if errd != 1 or decimals != vord + errd - eord - 1:
+                    esd = esd * 10
+                fit_info = f"${p} = {vsd:.{decimals}f}({esd:.0f})\\times 10^{{{vord}}}$"
+
+        # non-scientific notation        
         else:
-            # when none need a decimal point
-            if vord - ( vp - 1 ) > -1 and eord - 1 > -1:
-                val = vsd * 10 ** vord
-                err = e2sd * 10 ** eord
-
-                fit_info = f"${p} = {val:.0f}({err:.0f})$"
-
-            # other option is that both are below the decimal point
-            elif vord < 0 and eord < 0:
-                val = vsd * 10 ** vord
-                vald = - vord + (vp - 1)
-
-                # equal order, non-zero second digit error, and zero second digit val
-                # we need to ensure val has enough digits 
-                if vord == eord and (e2sd * 10)%10 != 0 and (val * 10)%10 == 0:
-                    vald+=1
+            if eord == 0:
+                # p/m notation when error has two digits or value has non-zero decimal
+                if errd == 2 or vald > vord + 1:
+                    # value is at least order 0, decimal places determined by val > vord + 1
+                    vald = max(vald - vord - 1, 0)
+                    fit_info = f"${p} = {valround:.{vald}f} \\pm {esd:.{errd-1}f}$"
                 
-                esd = e2sd * 10 ** (eord + vald)
-
-                fit_info = f"${p} = {val:.{vald}f}({esd:.0f})$"
-
-            # all other cases there is a decimal point we have to worry about
+                # shorthand notation for no decimals in either
+                else:
+                    fit_info = f"${p} = {valround:.0f}({esd:.0f})$"
+                
+            # error positive order, i.e. neither value or error will have decimals
+            elif eord > 0:
+                esd = esd * 10**(eord)
+                fit_info = f"${p} = {valround:.0f}({esd:.0f})$"
+                
+            # error below decimal
             else:
-                val = vsd * 10 ** vord
-                vald = 0
+                # have value with as many decimals as the maximum of val or error
+                decimals = max(vald - vord - 1, errd - eord - 1)
+                
+                # if error has more than 1 digit
+                # or the value decimals exceed the error last digit position, by def at most by 1
+                # multiply the esd by 10
+                if errd != 1 or decimals != errd - eord - 1:
+                    esd = esd * 10
 
-                # check if val needs the decimal point
-                if vord < 1:
-                    vald = - vord + (vp - 1)
-
-                err = e2sd * 10 ** eord
-                errd = 0
-
-                # check if err needs the decimal point
-                if eord == 0 and (e2sd * 10)%10 != 0:
-                    errd = 1
-
-                fit_info = f"${p} = {val:.{vald}f} \\pm {err:.{errd}f}$"
-
+                fit_info = f"${p} = {valround:.{decimals}f}({esd:.0f})$"
+                                
+    # cases when error dominates
     else:
-        # Check order of value to 2 precision digits
-        # print(v)
-        vsd = p_significant_digits(v, p=2)
-        vord = order_number(v, p=2)
-        vald = 2
-
-        # Check error to 9 percent precision
-        esd, eord, errd = percent_significant_digits(e, percent=9)
-
-        # Increase the precision of v until all important digits are in: ov - oe + errd
-        vp = vald
-        while vord - eord + errd > vp:
-            vp += 1
-            vord = order_number(v, p=vp)
-
-        vsd = p_significant_digits(v, p=vp)
-
-        if vord < eord:
-            esd = p_significant_digits(e, 2)
-            eord = order_number(e, 2)
-            errd = 2
-            if vord < eord:
-                raise Exception("There is a weird case where v:{0} > e:{1} but the orders are reversed...".format(v,e))
-
-
+        # round value to 9% significance
+        vsd, vord, vald =  percent_significant_digits(value, 9)
+        
+        # round error to nearest integer in (order of the value minus 1)
+        errround = np.round(error / 10**(vord - 1)) * 10**(vord - 1)
+        eord = int(np.floor(np.log10(errround)))
+        esd = errround/10**eord
+                
+        # if error is order of magnitude bigger round to 9% significance 
+        if eord > vord:
+            esd, eord, errd = percent_significant_digits(error, 9)
+            
+            # for much larger errors keep only 1 sd in value
+            if eord - 1 > vord:
+                vsd = p_significant_digits(value, 1)
+                vord = order_number(value, 1)
+                vald = 1           
+        else:
+            # for errors with same order as value remove possible trailing zero for errd
+            if (errround/ 10**(vord - 1)) % 10 == 0:
+                errd = 1
+            else:
+                errd = 2   
+                       
+        # print(vsd, vord, vald)
+        # print(esd, eord, errd)    
+        
         # numbers that need scientific notation
         if vord > 2 or vord < -3:
-            if errd == 1:
-                # when only one digit for error
-                if vald == 2 and vord == eord:
-                    # only separate into +/- if two digits in value, same order, e.g. 2.1 +/- 1 
-                    use_format = 'pm scientific'
-
-                else:
-                    # with one digit in error having (esd) works most of the time
-                    use_format = 'shorthand scientific'
-
+            # p/m notation when same order and either has more than 1 digit
+            if eord == vord and vald*errd != 1:
+                fit_info = f"${p} = ({vsd:.{vald-1}f} \\pm {esd:.{errd-1}f})\\times 10^{{{vord}}}$"
+            
+            # when error is greater, which means vald = 1
+            # or (same order both val and err have 1 digit)
             else:
-                # when two digits for error
-                if vord == eord:
-                    # separate into +/- if same order, e.g. 2.1 +/- 1.1
-                    use_format = 'pm scientific'
-
-                else:
-                    # with value bigger than error we can do v.(ov-oe+1)f(esd)
-                    use_format = 'shorthand scientific'
-
-            if use_format == 'pm scientific':
-                vald = vp - 1
-                fit_info = f"${p} = ({vsd:.{vp-1}f} \\pm {esd:.{errd-1}f})\\times 10^{{{vord}}}$"
-
-            elif use_format == 'shorthand scientific':
-                vald = vord - eord + (errd - 1)
-                esd = esd * 10 ** (errd - 1)
-                fit_info = f"${p} = {vsd:.{vald}f}({esd:.0f})\\times 10^{{{vord}}}$"
-
-            else:
-                raise Exception(f"The value v:{v} was expected scientific, but with e:{e} did not match any category")
-
-        # formats without scientific notation
+                esd = esd * 10 ** (eord - vord)
+                fit_info = f"${p} = {vsd:.0f}({esd:.0f})\\times 10^{{{vord}}}$"
+        
+        # no scientific notation
         else:
-            # When the two numbers have their sd above the decimal place
-            if vord - ( vald - 1 ) > -1 and eord - (errd - 1) > -1:
-                val = vsd * 10 ** vord
-                err = esd * 10 ** eord
-
-                fit_info = f"${p} = {val:.0f}({err:.0f})$"
-
-            # When both numbers are below the decimal point
-            elif eord == 0:
-                # print('eord0')
-                # Since the option when writing as integers has been taken
-                val = vsd * 10 ** vord
-                vald = vald - 1
-
-                err = esd * 10 ** eord
-                errd = errd - 1
-
-                fit_info = f"${p} = {val:.{vald}f} \\pm {err:.{errd}f}$"
-
-            else:
-                # print('sh')
-                # All other ones can use short hand notation with decimal point
-                val = vsd * 10 ** vord
-
-                # fix the case where .95 +/- .46 -> 1.0(5) to do 0.95(50)
-                # specially since .95 +/- .45 -> .95(45) 
-                if vord == eord and errd == 1:
-                    errd += 1
-
-                vald = - eord + (errd - 1)
+            vsd = vsd * 10**vord
+            
+            # when value order 0
+            if vord == 0:
+                # p/m notation if value has two digits or error has non-zero decimal
+                if vald == 2 or errd - eord > 1:
+                    errd = max(errd - eord - 1, 0)
+                    fit_info = f"${p} = {vsd:.{vald-1}f} \\pm {esd:.{errd}f}$"
+                    
+                else:
+                    fit_info = f"${p} = {vsd:.0f}({esd:.0f})$"
+                        
+            # value above decimal, and hence error too
+            if vord > 0:
+                esd = esd * 10**eord
+                fit_info = f"${p} = {vsd:.0f}({esd:.0f})$"
                 
-                esd = esd * 10 ** (errd - 1)
-
-                fit_info = f"${p} = {val:.{vald}f}({esd:.0f})$"
-
+            # value below decimal
+            if vord < 0:
+                # cover either error or value total decimals
+                decimals = max(vald - vord - 1, errd - eord - 1)
+                
+                # when error has more decimlas we need times 10
+                if eord == vord and errd > vald:
+                    esd *= 10
+                else:
+                    # otherwise we need times order difference and the value digits - 1
+                    esd = esd * 10 ** (eord - vord + vald - 1)
+                
+                fit_info = f"${p} = {vsd:.{decimals}f}({esd:.0f})$"
+                
     return fit_info
 
 
