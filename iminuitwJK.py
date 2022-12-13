@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 # @Date    : 2022-02-01 16:13:13
 # @Author  : Felipe G. Ortega-Gama (felipeortegagama@gmail.com)
-# @Version : 1.0
-# Template to run a jackknife fit
+# @Version : 2.0
+# Macros to run read/write jackknife files, perform operations and fits, make visualizations.
 
 
 import numpy as np
@@ -14,6 +14,11 @@ import csv
 # import subprocess
 from iminuit import Minuit
 from iminuit.util import describe, make_func_code
+
+from packaging import version
+from iminuit import __version__ as imversion
+if version.parse(imversion) < version.parse("2.6"):
+    raise Exception(f"iminuit version 2.6 or newer is required, version {imversion} found.")
 
 
 def read_Jack_file(filename, r_comp=0):
@@ -410,13 +415,16 @@ def td_ensemble_op(td_fun, operation, xd, ensemble, jackknifed = False):
     """Do a time-dependant operation(fun(t), ens(t)) over an ensemble with jackknife statistics
     always return the upscale ensemble, but can receive a downscaled ensemble 
     
-    Example of an td_fun operation
+    Example of a td_fun
     def td_fun(t):
-        tmin = 3
         mass = .2612
         t0 = 10
         
-        return np.exp(mass*((t+tmin)-t0))
+        return np.exp(mass*(t-t0))
+    
+    and to multiply it by the jackknife you would do
+    td_ensemble_op(td_fun, lambda x,y: x*y, xd, ensemble)
+
     """
 
     if not jackknifed:
@@ -465,6 +473,10 @@ class LeastSquares:
         ym = self.model(self.x, *par)
         return (self.y - ym) @ self.invcov @ (self.y - ym)
 
+    @property
+    def ndata(self):
+        return len(self.x)
+
 def do_fit(model, xd, yd, invcov, **kwargs):
     lsq = LeastSquares(model, xd, yd, invcov)
     m = Minuit(lsq, **kwargs)
@@ -484,11 +496,23 @@ def do_fit_limits(model, xd, yd, invcov, limits, **kwargs):
 
     return m
 
+def do_fit_limits_fixed(model, xd, yd, invcov, limits, fixed, **kwargs):
+    lsq = LeastSquares(model, xd, yd, invcov)
+    m = Minuit(lsq, **kwargs)
+    m.limits = limits
+    m.fixed = fixed
+    m.migrad()
+    m.hesse()
+    # m.minos()
+
+    return m
+
 def fit_data_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, fitfun=dict(fitfun="do_fit"), verb = 0, **kwargs):
     """
     Perform a JK fit to ydata=fun(xdata)
     covariance matrix is provided as input
     provide the initial value of the fit parameters as kwargs
+    This function should be used internally
     """
 
     ydata, m_ydata = ydata_and_m
@@ -519,18 +543,15 @@ def fit_data_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, fitfun=dict(fitfu
 
 
     # Do fit to mean to get priors
-    try:
-        # Two types of fit so far, can extend it arbitrarily
-        if fitfun["fitfun"] == "do_fit" :
-            mean_fit = do_fit(fun, xdata, m_ydata, inv_cov_ydata, **kwargs)
-        elif fitfun["fitfun"] == "do_fit_limits":
-            mean_fit = do_fit_limits(fun, xdata, m_ydata, inv_cov_ydata, fitfun["limits"], **kwargs)
-        else:
-            raise ValueError("Fit supported for generic do_fit, and do_fit_limits")
-
-    except Exception as e:
-        print(e)
-        raise Exception("Fix the above exception in fitfun to proceed to the fit")
+    # Two types of fit so far, can extend it arbitrarily
+    if fitfun["fitfun"] == "do_fit" :
+        mean_fit = do_fit(fun, xdata, m_ydata, inv_cov_ydata, **kwargs)
+    elif fitfun["fitfun"] == "do_fit_limits":
+        mean_fit = do_fit_limits(fun, xdata, m_ydata, inv_cov_ydata, fitfun["limits"], **kwargs)
+    elif fitfun["fitfun"] == "do_fit_limits_fixed":
+        mean_fit = do_fit_limits_fixed(fun, xdata, m_ydata, inv_cov_ydata, fitfun["limits"], fitfun["fixed"], **kwargs)
+    else:
+        raise ValueError("Fit unsupported, options are do_fit, do_fit_limits and do_fit_limits_fixed")
 
 
     if not mean_fit.valid:
@@ -560,6 +581,8 @@ def fit_data_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, fitfun=dict(fitfu
             m = do_fit(fun, xdata, jk_y, inv_cov_ydata, **priordict)
         elif fitfun["fitfun"] == "do_fit_limits":
             m = do_fit_limits(fun, xdata, jk_y, inv_cov_ydata, fitfun["limits"], **priordict)
+        elif fitfun["fitfun"] == "do_fit_limits_fixed":
+            m = do_fit_limits_fixed(fun, xdata, jk_y, inv_cov_ydata, fitfun["limits"], fitfun["fixed"], **priordict)
 
         if m.valid:
             chi2.append(m.fval)
@@ -584,9 +607,23 @@ def fit_data_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, fitfun=dict(fitfu
     return mean_fit, params_up, mean_chi2
 
 def invert_cov(cov_ydata, svd_reset=None):
+    """
+    svd_reset can be, either use stores both to use later:
+    * num_reset: keep the n largest singular values
+    * rat_reset: keep (correlation) singular values above a ratio wrt the largest value
+    """
 
-    if svd_reset != None:
-        
+    if svd_reset == None:
+    
+        # Invert the covariance matrix
+        try:
+            inv_cov_ydata=np.linalg.inv(cov_ydata)
+        except:
+            print("Eigenvalues of the covariance matrix should be non-zero, and by def positive")
+            print(np.linalg.eigvalsh(cov_ydata))
+            raise Exception('Inversion of covariance data failed, maybe try an svd reset with inversion keyword')
+
+    else:
         u, s, vh = np.linalg.svd(cov_ydata, hermitian = True)
 
         cor_ydata = cov2cor(cov_ydata)
@@ -598,7 +635,7 @@ def invert_cov(cov_ydata, svd_reset=None):
 
             kept_svds = len(s) - svd_reset["num_reset"]
  
-            # get the ratio reset to use later
+            # get the ratio reset in case we need later
             if kept_svds == len(s):
                 svd_reset["rat_reset"] = 0
             else:
@@ -610,7 +647,7 @@ def invert_cov(cov_ydata, svd_reset=None):
             s_reset[:kept_svds] = 1/s[:kept_svds]
 
         elif "rat_reset" in svd_reset:
-            s_reset[0] = [1./s[0]]
+            s_reset[0] = 1./s[0]
             kept_svds = 1
             for nn, sing_val in enumerate(scor[1:]):
                 if sing_val/scor[0] > svd_reset["rat_reset"]:
@@ -626,85 +663,76 @@ def invert_cov(cov_ydata, svd_reset=None):
             """
             svd_reset only has:
             * num_reset: keep the n largest singular values
-            * rat_reset: keep singular values above a ratio wrt the largest value
+            * rat_reset: keep (correlation) singular values above a ratio wrt the largest value
             """)
 
-        inv_cov_ydata = u @ np.diag(s_reset) @ vh  
-
-    else:
-        # Invert the covariance matrix
-        try:
-            inv_cov_ydata=np.linalg.inv(cov_ydata)
-        except:
-            print("Eigenvalues of the covariance matrix should be non-zero, and by def positive")
-            print(np.linalg.eigvalsh(cov_ydata))
-            raise Exception('Inversion of covariance data failed')
+        inv_cov_ydata = u @ np.diag(s_reset) @ vh 
+        print(svd_reset)
 
     return inv_cov_ydata
 
-def fit_data(xdata, ydata, fun, verb = 0, **kwargs):
+def fit_data(xdata, ydata, fun, verb = 0, limits=None, inversion=None, **kwargs):
     """
     Perform a JK fit to ydata=fun(xdata) using the ydata ensemble to calculate covariance
     provide the initial value of the fit parameters as kwargs
+    
+    * Limits can be provided in a list, the list needs to be the same length as the variables
+        - None for no limit
+        - use 1 value to fix variable
+        - [low_lim, up_lim], one of them can be None if no up/low lim
+            if low_lim=up_lim the variable will also be fixed
+
+    *Inversion for covariance:
+        - None for normal inversion
+        - "diag" to ignore off diagonal covariance elements in inversion
+        - dict(num_reset) to reset a certain number of smallest *covariance* eigvals 
+        - dict(rat_reset) to reset *correlation* eigvals smaller than rat_reset * (bigger eigval)
     """
     # print(xdata,ydata)
-    m_ydata = meanense(ydata)
 
-    cov_ydata = covmatense(ydata, m_ydata)
-
-    return fit_data_input_cov(xdata, (ydata, m_ydata), fun, invert_cov(cov_ydata), verb=verb, **kwargs)
-
-def fit_data_limits(xdata, ydata, fun, limits, verb = 0, **kwargs):
-    """
-    Perform a JK fit to ydata=fun(xdata) using the ydata ensemble to calculate covariance
-    provide the initial value of the fit parameters as kwargs
-    provide limits as a list of [low,high] in parameter order, use None for no limit
-    """
-
-    m_ydata = meanense(ydata)
-
-    cov_ydata = covmatense(ydata, m_ydata)
-
+    # check for limits and fixed
+    lim_fix = dict(lims = [], fixes = [])
     num_lim = 0
+    num_fixed = 0
     for limit in limits:
-        if limit != None:
+        if limit == None:
+            lim_fix['lims'].append(limit)
+            lim_fix['fixes'].append(False)
+
+        elif len(limit) == 1 or limit[0] == limit[1]:
+            lim_fix['lims'].append(None)
+            lim_fix['fixes'].append(True)
+            num_fixed += 1
+            num_lim += 1 # even if none has limits it is easier to set it up this way
+
+        else:
+            lim_fix['lims'].append(limit)
+            lim_fix['fixes'].append(False)
             num_lim +=1
 
-
     if num_lim:
-        fitfun = dict(fitfun="do_fit_limits",limits=limits)
+        if num_fixed:
+            fitfun = dict(fitfun="do_fit_limits_fixed",limits=lim_fix['lims'],fixed=lim_fix['fixes'])
+        else:
+            fitfun = dict(fitfun="do_fit_limits",limits=lim_fix['lims'])
     else:
         fitfun = dict(fitfun="do_fit")
 
-    return fit_data_input_cov(xdata, (ydata, m_ydata), fun, invert_cov(cov_ydata), fitfun=fitfun, verb=verb, **kwargs)
 
-def fit_data_diag_cov(xdata, ydata, fun, verb = 0, **kwargs):
-    """
-    Perform a JK fit to ydata=fun(xdata) using the diagonal elements of the covariance matrix
-    provide the initial value of the fit parameters as kwargs
-    """
-    # print(xdata,ydata)
-
+    # the average is used for the initial fit, and to compute the covariance
     m_ydata = meanense(ydata)
 
-    cov_ydata = np.diag(np.diag(covmatense(ydata, m_ydata)))
+    # check for how to invert covariance
+    if inversion == "diag":
+        cov_ydata = np.diag(np.diag(covmatense(ydata, m_ydata)))
+        inv_cov = invert_cov(cov_ydata)
 
-    fitfun = dict(fitfun="do_fit")
-
-    return fit_data_input_cov(xdata, (ydata, m_ydata), fun, invert_cov(cov_ydata), verb=verb, **kwargs)
-
-def fit_data_svd(xdata, ydata, fun, svd_reset, verb = 0, **kwargs):
-     """
-     Perform a JK fit to ydata=fun(xdata) using svd resetting of the covariance matrix
-     provide the initial value of the fit parameters as kwargs
-     svd
-     """
-
-     m_ydata = meanense(ydata)
-     cov_ydata = covmatense(ydata, m_ydata)
+    else:
+        cov_ydata = covmatense(ydata, m_ydata)
+        inv_cov = invert_cov(cov_ydata, inversion)
 
 
-     return fit_data_input_cov(xdata, (ydata, m_ydata), fun, invert_cov(cov_ydata, svd_reset), verb=verb, **kwargs)
+    return fit_data_input_cov(xdata, (ydata, m_ydata), fun, inv_cov, fitfun=fitfun, verb=verb, **kwargs)
 
 
 def order_number(number, p = 1):
@@ -793,10 +821,16 @@ def add_fit_info_ve(p, value, error):
         # round error to 9% significance
         esd, eord, errd = percent_significant_digits(error, 9)
         
-        # round value to the nearest integer in (order of the error minus 1)
-        valround = np.round(value / 10**(eord - 1)) * 10**(eord - 1)
-        vord = int(np.floor(np.log10(valround)))
-        vsd = valround/10**vord
+        # special case of 0 error, e.g. for fixed params
+        if esd == 0:
+            vsd, vord, vald = percent_significant_digits(value, 9)
+            valround = vsd * 10**vord
+            eord = vord
+        else:
+            # round value to the nearest integer in (order of the error minus 1)
+            valround = np.round(value / 10**(eord - 1)) * 10**(eord - 1)
+            vord = int(np.floor(np.log10(valround)))
+            vsd = valround/10**vord
         
         # the number of signigicant digits should be the order difference + 2
         vald = vord - eord + 2
@@ -806,6 +840,7 @@ def add_fit_info_ve(p, value, error):
                 vald -= 1
             else:
                 break    
+        
         # print(vsd, vord, vald)
         # print(esd, eord, errd)
         
@@ -864,10 +899,16 @@ def add_fit_info_ve(p, value, error):
         # round value to 9% significance
         vsd, vord, vald =  percent_significant_digits(value, 9)
         
-        # round error to nearest integer in (order of the value minus 1)
-        errround = np.round(error / 10**(vord - 1)) * 10**(vord - 1)
-        eord = int(np.floor(np.log10(errround)))
-        esd = errround/10**eord
+        # special case for value 0, eg when fixing val
+        if vsd == 0:
+            esd, eord, errd = percent_significant_digits(error, 9)
+            errround = esd * 10**eord
+            vord = eord
+        else:
+            # round error to nearest integer in (order of the value minus 1)    
+            errround = np.round(error / 10**(vord - 1)) * 10**(vord - 1)
+            eord = int(np.floor(np.log10(errround)))
+            esd = errround/10**eord
                 
         # if error is order of magnitude bigger round to 9% significance 
         if eord > vord:
@@ -935,6 +976,9 @@ def add_fit_info_ve(p, value, error):
                 
     return fit_info
 
+def summarize_fit_result(fit_data_result, pretty_vars = [], svd_reset=None):
+    return summarize_result(fit_data_result[0], fit_data_result[1], fit_data_result[2], range(int(fit_data_result[0].ndof + fit_data_result[0].nfit)), pretty_vars, svd_reset)
+
 
 def summarize_result(mean_fit, params_ense, mean_chi2, xdata, pretty_vars = [], svd_reset=None):
     mean_pars = meanense(params_ense)
@@ -953,14 +997,16 @@ def summarize_result(mean_fit, params_ense, mean_chi2, xdata, pretty_vars = [], 
     if len(mean_pars) == len(pretty_vars):
         names = pretty_vars
 
+    nn = 0
     for p, v, e in zip(names, mean_pars, np.diag(cov_pars)**(1/2)):
-
+        if mean_fit.fixed[nn]:
+            e = 0
+            p = p + "\\mathrm{\\ [fixed]}"
+        
+        
         fit_info.append(add_fit_info_ve(p, v, e))
-
-        # if np.round(e*1e3) == 0:
-        #     fit_info.append(f"${p} = {v:.3f} \\pm {e:.0e}$")
-        # else:
-        #     fit_info.append(f"${p} = {v:.3f} \\pm {e:.3f}$")
+        
+        nn +=1
 
     return [mean_pars, np.diag(cov_pars)**(1/2)], cor_pars, fit_info
 
@@ -986,11 +1032,6 @@ def summarize_result_corr(pars, mean_chi2, lenxdata, pretty_vars):
     for p, v, e in zip(names, mean_pars, np.diag(cov_pars)**(1/2)):
 
         fit_info.append(add_fit_info_ve(p, v, e))
-
-        # if np.round(e*1e3) == 0:
-        #     fit_info.append(f"${p} = {v:.3f} \\pm {e:.0e}$")
-        # else:
-        #     fit_info.append(f"${p} = {v:.3f} \\pm {e:.3f}$")
 
     return [mean_pars, np.diag(cov_pars)**(1/2)], cor_pars, fit_info    
 
@@ -1362,7 +1403,12 @@ def plot_data(ax, xd, yd, yerr, nn, **kwargs):
                  elinewidth=1, capsize=3.5, **kwargs)
     return out
 
-def plot_cfg_fromfile(filename, axs, nn=0, mask = [], plots = ['all']):
+def plot_cfg_fromfile(filename, axs, mask = [], scaled = True):
+    """
+    Input: jackfilelist of axs, only the first one will be used.
+    Plot the individual configurations, and the contours over several standard deviations
+    Outliers should be easy to spot with this visualization.
+    """
 
     cfgs, npoints, xdata, ydata, xmasked, ymasked = maskdata(filename,mask )
 
@@ -1389,6 +1435,8 @@ def plot_cfg_fromfile(filename, axs, nn=0, mask = [], plots = ['all']):
     cmapc = mpl.colors.ListedColormap([gcmap(xx/.63) for xx in gind])
 
     for nn, ycfg in enumerate(ydata):
+        if scaled:
+            ycfg = (ycfg - m_ydata)/(e_ydata*np.sqrt(cfgs))
 
         axs[0].plot(xdata, ycfg, '_', ls='', color = cmap( norm( nn + 1 )))
 
@@ -1400,7 +1448,10 @@ def plot_cfg_fromfile(filename, axs, nn=0, mask = [], plots = ['all']):
 
     y = np.linspace(ylims[0], ylims[1], num= Ny)
     X, Y = np.meshgrid(xdata, y)
-    Z = (Y - m_ydata )/(e_ydata*np.sqrt(cfgs))
+    if scaled:
+        Z = Y
+    else:
+        Z = (Y - m_ydata )/(e_ydata*np.sqrt(cfgs))
 
     CS = axs[0].contourf(X, Y, Z,levels=np.arange(-9,11,2), cmap=cmapc)
     CS1 = axs[0].contour(CS,colors='k',linestyles= 'solid', linewidths=.8)
