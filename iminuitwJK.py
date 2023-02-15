@@ -478,6 +478,9 @@ class LeastSquares:
         return len(self.x)
 
 def do_fit(model, xd, yd, invcov, **kwargs):
+    """
+    Do a fit over a set of data
+    """
     lsq = LeastSquares(model, xd, yd, invcov)
     m = Minuit(lsq, **kwargs)
     m.migrad()
@@ -487,6 +490,9 @@ def do_fit(model, xd, yd, invcov, **kwargs):
     return m
 
 def do_fit_limits(model, xd, yd, invcov, limits, **kwargs):
+    """
+    Do a fit over a set of data, place limits on the parameters
+    """
     lsq = LeastSquares(model, xd, yd, invcov)
     m = Minuit(lsq, **kwargs)
     m.limits = limits
@@ -497,6 +503,9 @@ def do_fit_limits(model, xd, yd, invcov, limits, **kwargs):
     return m
 
 def do_fit_limits_fixed(model, xd, yd, invcov, limits, fixed, **kwargs):
+    """
+    Do a fit over a set of data, place limits on the parameters or fix some of them
+    """
     lsq = LeastSquares(model, xd, yd, invcov)
     m = Minuit(lsq, **kwargs)
     m.limits = limits
@@ -755,25 +764,24 @@ def order_number(number, p = 1):
 
 def p_significant_digits(num, p=1):
     """
-    For 1 sd [0.95, 1.05) -> 1, [1.05, 1.15) -> 1.1
-    For 2 sd [0.995, 1.005) -> 1, [1.005, 1.015) -> 1.01
+    For 1 sd [0.95, 1.5) -> 1, [1.5, 2.5) -> 2, ..., [8.5, 9.5) -> 9
+    For 2 sd [0.995, 1.05) -> 1, [1.05, 1.15) -> 1.1, ..., [9.85, 9.95) -> 9.9
+    For 3 sd [0.9995, 1.005) -> 1, [1.005, 1.015) -> 1.01, ..., [9.985, 9.995) -> 9.99
     Returns numbers in [1,10) range
     """
+    if num == 0:
+        return 0
 
-    sign = np.sign(num)
-    num = np.abs(num)
+    if p <= 0:
+        raise ValueError(f"p should be positive, not {p}")
 
     numord = order_number(num, p)
 
     f = numord - (p - 1)
 
-    if p > 0:
-
-        return sign * np.round(num/10**f) * 10 **(1 - p)
-        # Note that round chooses the closest even number 3.5 and 4.5 -> 4
-
-    else:
-        raise ValueError(f"p should be positive, not {p}")
+    # Note that round chooses the closest even number 3.5 and 4.5 -> 4
+    return  np.round(num/10**f) * 10 **(1 - p)
+        
 
 def percent_significant_digits(num, percent=9):
     """ Write a number up to the significant digits
@@ -810,7 +818,340 @@ def percent_significant_digits(num, percent=9):
     return val1, order1, digits
 
 
+def simple_order_number(number):
+    """ 
+    Get the order of a number: floor of the log10 of the number
+    If p = 1 
+    Assign order 0 to numbers [1, 10)
+    Assign order 1 to numbers [10, 100)
+    ...
+    """
+    number = np.abs(number)
+    numord = int(np.floor(np.log10(number)))
+
+    return numord
+
+def PDG_rounding_rules(num):
+    """
+    Implement the rounding rules from the PDG,
+    add our implementation of p_significant_digits.
+    Take the first three significant digits
+    * If <355, round to two significant digits.
+    * If >=355 and <949, round to one significant digit.
+    * If >=950, round to 1000 and keep _two_ significant digits.
+    -------
+    Returns
+    -------
+    out: [rounded number in (1,10], number of significant digits, order]
+    if input is 0: [0, 1, 0]
+    """
+    # special case of 0
+    if num == 0:
+        return [0, 1, 0]
+
+    # order = order_number(num, 3)
+    # threedig = 100*p_significant_digits(num, 3)
+    order = simple_order_number(num)
+    threedig = num/10**(order - 2)
+
+    if threedig < 355:
+        # return [np.round(threedig/10) * 10**(order - 1), 2, order]
+        return [np.round(threedig/10)/10, 2, order]
+    elif threedig < 950:
+        # return [np.round(threedig/100) * 10**(order), 1, order]
+        return [np.round(threedig/100), 1, order]
+    else:
+        # return [np.round(threedig/100) * 10**(order), 2, order]
+        return [np.round(threedig/100)/10, 2, order+1]
+
+
+def value_error_rounding(value, error):
+    """ 
+    Get a value and error and return them in the rounding convention 
+
+    Returns
+    -------
+    out : dict with the following elements
+        vsd : value with decimal point at printing convention
+        vpr : precision to write value
+        esd : error with decimal point at printing convention
+        epr : precision to write error
+        ord : order of scientific notation ( if any )
+        ntn : string pm or sh for notation to use
+        sci : boolean to use or not scientific notation
+    """
+    
+    esd, errd, eord = PDG_rounding_rules(error)
+    
+    # special case zero error (eg fixed params)
+    if esd==0:
+        out = dict(ntn = 'sh')
+        vord = simple_order_number(value)
+        vsd = value/10**vord
+        
+        # scientific notation, keep at most keep at most 3 decimals
+        if vord < -3 or 2 < vord:
+            vdecimals = 3
+            while vdecimals:
+                if np.round(vsd * 10**vdecimals) % 10 == 0:
+                    vdecimals -= 1
+                else:
+                    break
+                
+            out.update(vsd = vsd, vpr = vdecimals, esd = 0, epr = 0, ord = vord, sci= True)
+            return out
+        
+        # keep at most 3 decimals, or 4sd
+        else:
+            vdecimals = max(3, - vord  + 3)
+            while vdecimals:
+                if np.round(value * 10**vdecimals) % 10 == 0:
+                    vdecimals -= 1
+                else:
+                    break
+                    
+            out.update(vsd = value, vpr = vdecimals, esd = 0, epr = 0, ord = vord, sci= False)
+            return out
+            
+        
+    # greater eord than vord
+    if np.abs(value) < 9.5*10**(eord - 1):
+        # in this case we do not need pm, only short hand notation
+        out = dict(ntn = 'sh')
+        
+        # keep only 1 digit
+        vsd = p_significant_digits(value, 1)
+        vord = order_number(value, 1)
+        
+        # scientific notation
+        if vord < -3 or 2 < vord:
+            # adjust error to be in written wrt to value order
+            epadded = esd * 10**(eord - vord)
+            out.update(vsd = vsd, vpr = 0, esd = epadded, epr = 0, ord = vord, sci= True)
+            return out
+        
+        # numbers with no decimals, have both written in their order
+        elif vord >= 0:
+            vpadded = vsd * 10**(vord)
+            epadded = esd * 10**(eord)
+            out.update(vsd = vpadded, vpr = 0, esd = epadded, epr = 0, ord = vord, sci= False)
+            return out
+        
+        # numbers with decimals, value with decimals, error wrt to value order
+        else:
+            
+            vpadded = vsd * 10**(vord)
+            vdecimals = -vord
+            epadded = esd * 10**(eord - vord)
+            out.update(vsd = vpadded, vpr = vdecimals, esd = epadded, epr = 0, ord = vord, sci= False)
+            return out
+            
+        
+    # values same order as error use (in general) pm notation
+    elif np.abs(value) < 9.95 * 10**(eord):
+        vsd = np.round( value / 10**(eord - 1) ) / 10
+        vord = eord
+        vald = 2
+
+        # get rid of unnecessary zeros
+        if np.round(vsd*10) % 10 == 0:
+            vald = 1
+        if np.round(esd*10) % 10 == 0:
+            errd = 1
+
+        # scientific notation
+        if vord < -3 or 2 < vord:
+            out = dict(sci = True)
+
+            # sh notation for *one* digit in value and error
+            if vald*errd == 1:
+                out.update(vsd = vsd, vpr = 0, esd = esd, epr = 0, ntn = 'sh', ord = vord)
+                return out
+            # pm notation otherwise
+            else:
+                out.update(vsd = vsd, vpr = vald-1, esd = esd, epr = errd - 1, ntn = 'pm', ord = vord)
+                return out
+
+        # NO scientific notation
+        out = dict(sci = False)
+        # pm notation (in general) for value order zero
+        if vord == 0:
+            
+            # sh notation for *one* digit in value and error
+            if vald*errd == 1:
+                out.update(vsd = vsd, vpr = 0, esd = esd, epr = 0, ntn = 'sh', ord = vord)
+                return out
+            # pm notation otherwise
+            else:
+                out.update(vsd = vsd, vpr = vald - 1, esd = esd, epr = errd - 1, ntn = 'pm', ord = vord)
+                return out
+
+        # sh notation for all others
+        # write in their order for numbers without decimals
+        elif vord > 0:
+            vpadded = vsd * 10**vord
+            epadded = esd * 10**eord
+            out.update(vsd = vpadded, vpr = 0, esd = epadded, epr = 0, ntn = 'sh', ord = vord)
+            return out
+
+        # value with decimals
+        else:
+            vpadded = vsd * 10**vord
+            
+            # can get rid of zeros for *one* digit in value and error
+            if vald*errd == 1:
+                vdecimals = - vord
+                epadded = esd
+            
+            # otherwise get all decimals and pad error
+            else:
+                vdecimals = - vord  + 1
+                epadded = esd * 10
+
+            out.update(vsd = vpadded, vpr = vdecimals, esd = epadded, epr = 0, ntn = 'sh', ord = vord)
+            return out
+    
+    # no need for else statement
+    # values order of magnitude greater than error will (in general) use sh notation
+    valround = np.round( value / 10**(eord - (errd - 1)) ) * 10**(eord - (errd - 1) )
+    vord = simple_order_number(valround)
+    vsd = valround/10**vord
+    vald = vord - eord + errd
+    
+
+    # errors with 2 sd digits can discriminate with more precision
+    if errd == 2:
+        # get rid of unnecessary zeros
+        # check if last digits of value and error are zeros
+        unneeded_zeros = False
+        if np.round(vsd * 10**(vald - 1)) % 10== 0 and np.round(esd*10) % 10 == 0:
+            unneeded_zeros = True
+
+        # scientific notation, sh notatioon
+        if vord < -3 or 2 < vord:
+            out = dict(sci = True, ntn = 'sh')
+            vdecimals = vald - 1
+
+            # unneeded zeros we can decrease the decimals
+            if unneeded_zeros:
+                vdecimals -= 1
+            # otherwise we need to multiply error by 10
+            else:
+                esd *= 10
+                
+            out.update(vsd = vsd, vpr = vdecimals, esd = esd, epr = 0, ord = vord)
+            return out
+
+        # NO scientific notation
+        out = dict(sci = False)
+        
+        # pm notation for eord == 0 and no unneeded_zeros
+        if eord == 0:
+            # sh for uneeded zeros case
+            if unneeded_zeros:
+                out.update(vsd = valround, vpr = 0, esd = esd, epr = 0, ntn ='sh', ord = vord)
+                return out
+            # pm when needed decimals
+            else:
+                out.update(vsd = valround, vpr = vald - 1, esd = esd, epr = errd - 1, ntn ='pm', ord = vord)
+                return out
+        
+        # sh notation, and value and error in full for eord > 0 (vord = 2)
+        # eord cannot be 2 or more, since that would mean vord > 2, and that case has been considered
+        elif eord > 0:
+            # consistency check
+            if vord != 2:
+                print(value, error)
+                raise Exception
+                
+            out.update(vsd = valround, vpr = 0, esd = esd*10**eord, epr = 0, ntn ='sh', ord = vord)
+            return out
+
+        # sh notation for all other cases (eord < 0)
+        else:
+            vdecimals = - eord + errd - 1
+
+            # if last of both digits are zeros we can ignore them
+            if unneeded_zeros:
+                vdecimals -= 1
+            # otherwise we should multiply esd * 10
+            else:
+                esd = esd * 10
+
+            out.update(vsd = valround, vpr = vdecimals, esd = esd, epr = 0, ntn ='sh', ord = vord)
+            return out
+
+    # errors with 1 sd digits are more loose
+    elif errd == 1:
+        # 1 sd digit always uses sh notation
+        out = dict(ntn = 'sh')
+        # scientific notation
+        if vord < -3 or 2 < vord:
+            out.update()
+            vdecimals = vald - 1
+
+            out.update(vsd = vsd, vpr = vdecimals, esd = esd, epr = 0, ord = vord, sci = True)
+            return out
+        
+        # NO scientific notation
+        else:
+            # if eord is negative we need decimals
+            vdecimals = max(0, -eord)
+            
+            # if eord is positive we need to write error in its order
+            if eord > 0:
+                esd *= 10**eord
+
+            out.update(vsd = valround, vpr = vdecimals, esd = esd, epr = 0, ord = vord, sci = False)
+            return out          
+
+
+
+def ve_dict2string(ve_dict):
+    """ 
+    Change from a dictionary with
+    vsd, vpr, esd, epr, ntn, sci, vord, name
+    To latex printable, eg
+    $num(unc)x10^n$ 
+    ...
+    """
+
+    if ve_dict['sci']:
+        if ve_dict['ntn'] == 'pm':
+            return f"({ve_dict['vsd']:.{ve_dict['vpr']}f} \\pm {ve_dict['esd']:.{ve_dict['epr']}f})\\times 10^{{{ve_dict['ord']}}}"
+
+        elif ve_dict['ntn'] == 'sh':
+            return f"{ve_dict['vsd']:.{ve_dict['vpr']}f}({ve_dict['esd']:.{ve_dict['epr']}f})\\times 10^{{{ve_dict['ord']}}}"
+
+        else:
+            ntn = ve_dict['ntn']
+            st= f"Unsupported {ntn} option, only pm and sh notation supported"
+            raise ValueError(st)
+
+    else:
+        if ve_dict['ntn'] == 'pm':
+            return f"{ve_dict['vsd']:.{ve_dict['vpr']}f} \\pm {ve_dict['esd']:.{ve_dict['epr']}f}"
+
+        elif ve_dict['ntn'] == 'sh':
+            return f"{ve_dict['vsd']:.{ve_dict['vpr']}f}({ve_dict['esd']:.{ve_dict['epr']}f})"
+
+        else:
+            ntn = ve_dict['ntn']
+            st= f"Unsupported {ntn} option, only pm and sh notation supported"
+            raise ValueError(st)
+
+
+
 def add_fit_info_ve(p, value, error):
+    """
+    Get a formatted string of the form p = value(error) or p = value +/- error
+    where p is the name of the variable
+    """    
+    ve_dict = value_error_rounding(value, error)
+    ve_dict['name'] = p
+    return f"${p} = " + ve_dict2string(ve_dict) + "$"
+
+def add_fit_info_ve_old(p, value, error):
     """
     Get a formatted string of the form p = value(error) or p = value +/- error
     where p is the name of the variable

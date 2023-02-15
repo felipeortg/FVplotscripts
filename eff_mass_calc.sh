@@ -12,12 +12,12 @@ fi
 
 # Check the number of arguments
 if [[ ($# -lt 2) || ($# -gt 3) ]]; then
-    echo "Usage is: $0 effmass.jack corr.jack [dt=3]"
+    echo "Usage is: $0 corr.jack effmass.jack [dt=3]"
     exit 1
 fi
 
-effmass=$1
-correl=$2
+correl=$1
+effmass=$2
 
 if [[ $# -gt 2 ]]; then
     dt=$3
@@ -33,6 +33,6 @@ tmaxdt=`expr $tmax - $dt `
 
 #echo "$1 = - log( real( extract( $correl , $dt, $tmax ) ) / real( extract( $correl , 0, $tmaxdt ) ) ) / $dt "
 
-ensbc "$1 = - log( real( extract( $correl , $dt + 1 , $tmax ) ) / real( extract( $correl , 1 , $tmaxdt ) ) ) / $dt "
+ensbc "$effmass = - log( real( extract( $correl , $dt + 1 , $tmax ) ) / real( extract( $correl , 1 , $tmaxdt ) ) ) / $dt "
 
 
