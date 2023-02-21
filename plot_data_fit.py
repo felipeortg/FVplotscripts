@@ -251,7 +251,7 @@ for nn, irre in enumerate(spectrum_pred):
                 # add 'data' label when first black data point is added, or if none present make label grey
                 if (not labeled and levcolor == 'k') or (not labeled and nn-1 == len(full_spectrum_reconfit[vol_irre])):        
                     plt.errorbar(level[0], Ecm, yerr=Ecm_err, 
-                             marker='_', mec=levcolor, fillstyle='none', ecolor=levcolor,ls='',
+                             marker='_', mec=levcolor, fillstyle='none', ecolor=levcolor, ls='',
                              elinewidth=1,capsize=10*errorbarwidth/0.8, label = 'data', zorder=4)
                     labeled = True
 
