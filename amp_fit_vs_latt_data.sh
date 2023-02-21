@@ -17,13 +17,21 @@ if [ "$#" -gt 0 ]; then
     exit 1
 fi
 
-cat dataset.py
+# cat dataset.py
 
-echo "If no header then assuming data in ../../spectrum/data/"
+echo "Assuming all reconfit dataset in ../../spectrum/data_useme/ unless modified in ./dataset"
 echo "Assuming lattice name in ../this_lattice.py unless modified in ./dataset"
-echo "Assuming location of Ecm_ini in ./dataset"
 echo "Assuming interacting spectrum from scatdevel in FV_spec"
 
+
+print_xpath="/Users/felipeortg/Documents/scattering/install/adat/bin/print_xpath"
+
+if [ ! -f fit_finite_volume_spectrum.ini.xml ]; then
+    echo "Run in folder with fit_finite_volume_spectrum.ini.xml"
+    exit 1
+fi
+
+Ecm_xml=`$print_xpath fit_finite_volume_spectrum.ini.xml "//EcmData"`
 
 # cd "FV_spec"
 scatfiles=`ls FV_spec/*spectrum`
@@ -31,4 +39,4 @@ scatfiles=`ls FV_spec/*spectrum`
 
 echo "Plotting: " $scatfiles
 
-plot_data_fit.py $scatfiles
+plot_data_fit.py $Ecm_xml $scatfiles

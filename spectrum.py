@@ -7,6 +7,7 @@
 
 import numpy as np
 import os
+import xml.etree.ElementTree as ET
 
 def label2vec(ks):
     vec = []
@@ -201,7 +202,13 @@ def print_twomeson_dict(particles):
 # These macros read spectrum files produced by various programs
 
 def read_reconfit_file(filename, noise = .1):
-    """ Read a spectrum file calculated via reconfit """
+    """ 
+    Read a spectrum file calculated via reconfit
+    Return:
+    irrep: string with irrep name
+    spectrum: list with [Ecm, Ecm_err]
+    t0_str: string of the form t0 = #
+    """
 
     spectrum = []
 
@@ -340,6 +347,10 @@ def read_free_spectrum_scatdevel(filename):
     return two_mesons
 
 def get_irrep_scat_devel_output(file):
+    """
+    Get the irrep name from get_finite_volume_spectrum_with_errors output
+    Reverse the momentum to canonical
+    """
 
     file = os.path.basename(file)
 
@@ -356,7 +367,11 @@ def get_irrep_scat_devel_output(file):
     return reversemom_inirreps([irrep])[0]
 
 def read_interacting_spectrum_scatdevel(filename, error = True):
-    """ Read a interacting spectrum file calculated via scatt_devel """
+    """ 
+    Read an interacting spectrum file calculated via scatt_devel
+    That means from get_finite_volume_spectrum[_with_errors] output
+    Return a list with [Vol, Ecm, Ecm_err]
+    """
 
     # Fill this list with all our levels
     spectrum = []
@@ -367,12 +382,14 @@ def read_interacting_spectrum_scatdevel(filename, error = True):
         for nn, line in enumerate(f):
             elems = line.split(' ')
 
-            if error:
-                strings = [elems[0],elems[3],elems[4]]
-            else:
-                strings = [elems[0],elems[3]]
+            # the output has 3 spaces between volume and energy
 
-            Lmunc = [float(vals) for vals in strings]
+            if error:
+                Lmunc = [int(elems[0]),float(elems[3]),float(elems[4])]
+            else:
+                Lmunc = [int(elems[0]),float(elems[3])]
+
+            # Lmunc = [float(vals) for vals in strings]
             
             spectrum.append(Lmunc)
 
@@ -383,6 +400,8 @@ def clean_calc_spectrum(dirty_spec, irrep, erange, chi, Lsize, Lwidth):
     """ 
     Take a spectrum from reconfit and dismiss dirty levels and those out of the range of interest
     Also move around the L-value when overlapping for clarity
+    Return list with elements [newL, Ecm, Ecm_err]
+    The list is made so that levels remain in same order as input
     """
     temp_list = []
     place = 0
@@ -458,4 +477,68 @@ def read_Ecm_ini(filename):
 
 
     return levelsinirrep
+
+
+def read_Ecm_xml(filename):
+    """
+    Read an xml with the Ecm data,
+    Return a dictionary with
+    Key: V_irrep
+    Value: dictionary: key lvl_num, value [Ecm, Ecm_err]
+    """
+    # read the xml, binary since ET knows how to take care of that
+    with open(filename, 'rb') as xml_file:
+        tree = ET.parse(xml_file)
+
+    # this is how the xml in python is read
+    root = tree.getroot()
+
+    # will save all read levels in here [Key, Val]
+    levels = []
+
+    # specific tree structure of Ecm_xmls
+    for elem in root.find('Energy_Levels/elem/Val/DATA'):
+        key = dict()
+        vals = dict()
+
+        for k in elem.find('Key'):
+            key[k.tag] = k.text
+
+        for v in elem.find('Val'):
+            vals[v.tag] = v.text
+
+        levels.append([key, vals])
+
+
+    # create a dictionary with the fitted levels
+    # Key is V_irrep, Val is list, elements [V, Ecm, Ecm_err, lvl_num]
+    fitted_levels = dict()
+
+    for level in levels:
+        irrepP = level[0]['d'].replace(" ","")
+        irrep = irrepP +"_"+level[0]['irrep']
+
+        # scattering_devel uses reference momenta...
+        vol_irrep = "V" + level[0]['V'] + "_" + reversemom_inirreps([irrep])[0]
+
+        lvl_plot_info = [int(level[0]['level_num']), float(level[1]['value']), float(level[1]['error'])]
+
+        if vol_irrep not in fitted_levels:
+            fitted_levels[vol_irrep] = []
+
+        fitted_levels[vol_irrep].append( lvl_plot_info )
+
+    fitted_levels_lvl_dict = dict()
+    for vol_irrep in fitted_levels:
+        lvl_dict = dict()
+
+        for lvl in fitted_levels[vol_irrep]:
+            lvl_dict[lvl[0]] = [lvl[1], lvl[2]]
+
+        fitted_levels_lvl_dict[vol_irrep] = lvl_dict 
+
+    return fitted_levels_lvl_dict
+
+
+
 
