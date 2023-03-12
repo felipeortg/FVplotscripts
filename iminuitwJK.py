@@ -89,7 +89,11 @@ def write_Jack_file(newfile, dataarray, w_comp=0):
     xlist = np.arange(xlen)
 
     with open(newfile, 'w') as f:
-        print("Writing a real valued ensemble in: " + newfile)
+        if w_comp:
+            print("Writing a complex valued ensemble in: " + newfile)
+        else:
+            print("Writing a real valued ensemble in: " + newfile)
+            
         data = csv.writer(f, delimiter=' ') #change from default comma
         data.writerow([cfgs, xlen, w_comp, 0, 1])
 
@@ -295,7 +299,13 @@ def cormatense(ense, meanense, jackknifed = False):
 def cov2cor(cov):
     sig = np.sqrt(np.diag(cov))
 
-    sig2weight = np.array([[1/(s1*s2) for s1 in sig] for s2 in sig])
+    def check_zeros(s1_s2):
+        if s1_s2 == 0:
+            return 1
+        else:
+            return 1/s1_s2
+
+    sig2weight = np.array([[check_zeros(s1*s2) for s1 in sig] for s2 in sig])
 
     return cov * sig2weight # this does element-wise multiplication of the arrays   
 
@@ -327,6 +337,9 @@ def errormean(ense, meanense, jackknifed = False):
     return (sigma)**(1/2)
 
 def calc(ense, jackknifed = False):
+    """ Mock the calc command line utility
+    Return an array with shape (indep_index, 2)
+    """
 
     mean = meanense(ense)
     err = errormean(ense, mean, jackknifed)
@@ -348,7 +361,9 @@ def get_mean_error_array(list_of_JK_ensems):
     return np.array(me_arr)
 
 def combine_ensemble_list(list_of_ensems):
-    """ take a list of 1-dim arrays, eg from get_data, and put them into a ensemble array shape (confs, indep_index) """
+    """ Take a list of 1-dim arrays, eg from get_data,
+    and put them into an ensemble array shape (confs, indep_index)
+    """
 
     return np.transpose(np.array(list_of_ensems)[:,:,0])
 
@@ -443,6 +458,15 @@ def td_ensemble_op(td_fun, operation, xd, ensemble, jackknifed = False):
     return jackup(op_ense)
         
 
+def eff_mass(correl, dt = 3, jackknifed = False):
+    """
+    Calculate the jackknife ensemble of the effective mass of a correlator
+
+    """  
+    cc = correl[:,:-dt]
+    ccdt = correl[:,dt:]
+    effmass = two_ensemble_op(lambda x,y: np.log(np.abs(x/y))/dt, cc, ccdt, jackknifed)
+    return effmass
 
 
 def mprint(mat,round=100):
@@ -680,7 +704,7 @@ def invert_cov(cov_ydata, svd_reset=None):
 
     return inv_cov_ydata
 
-def fit_data(xdata, ydata, fun, verb = 0, limits=None, inversion=None, **kwargs):
+def fit_data(xdata, ydata, fun, verb = 0, limits=[None], inversion=None, **kwargs):
     """
     Perform a JK fit to ydata=fun(xdata) using the ydata ensemble to calculate covariance
     provide the initial value of the fit parameters as kwargs
@@ -1605,11 +1629,17 @@ def corr_mat_from_file(filename, axs, mask = [], label_all=False):
 
     Returns
     -------
-    out : list
-        list of artists added to ax1
+    out : correlation matrix
     """
 
-    cfgs, npoints, xdata, ydata, xmasked, ymasked = maskdata(filename,mask )
+    try:
+        cfgs, npoints, xdata, ydata, xmasked, ymasked = maskdata(filename,mask )
+    except ValueError as e:
+        if str(e).split("\n")[1] == 'File: 1, requested 0':
+            print("Data is complex, real part will be read")
+            cfgs, npoints, xdata, ydata, xmasked, ymasked = maskdata(filename,mask, r_comp=1 )
+        else:
+            raise e
 
     print("---")
     print("xdata, shape(ydata):")
@@ -1744,9 +1774,22 @@ def plot_data(ax, xd, yd, yerr, nn, **kwargs):
                  elinewidth=1, capsize=3.5, **kwargs)
     return out
 
+def plot_eff_mass(ax, correl, **kwargs):
+
+    effmass = eff_mass(correl)
+
+    mean_error = calc(effmass)
+
+    t = np.arange(np.shape(mean_error)[0])
+
+    out = ax.errorbar(t, mean_error[:,0], mean_error[:,1],
+                 ls='', elinewidth=1, capsize=3.5, **kwargs)
+    return out
+
+
 def plot_cfg_fromfile(filename, axs, mask = [], scaled = True):
     """
-    Input: jackfilelist of axs, only the first one will be used.
+    Input: jackfile, list of axs, only the first one will be used.
     Plot the individual configurations, and the contours over several standard deviations
     Outliers should be easy to spot with this visualization.
     """
@@ -1829,12 +1872,13 @@ def add_labels_correlation(covax, filename, mask=[], **kwargs):
             continue
         col = np.abs(label)
         
-        
+        # Some aesthetic, we dont need 1.00, 1 is enough, we dont need 0.7 or -0.7, .7 and -.7
+        text = f"${label:.2f}$".replace("0.", ".").replace("1.00","1").replace("-.00","0").replace("-0","0")        
         if col < 0.7:
-            covax.text(i,j,f"{label:.2f}",ha='center',va='center', c='k', **kwargs)
+            covax.text(i,j,text,ha='center',va='center', c='k', **kwargs)
 
         else:
-            covax.text(i,j,f"{label:.2f}",ha='center',va='center', c='w', **kwargs)
+            covax.text(i,j,text,ha='center',va='center', c='w', **kwargs)
 
 
 def add_labels_matrix(ax, mat, sym=True, hide_diag=False, **kwargs):
@@ -1842,6 +1886,8 @@ def add_labels_matrix(ax, mat, sym=True, hide_diag=False, **kwargs):
     Write values of matrix in a matshow axis
     ax: Axis where matshow was used
     mat: the values of the matrix in question
+    sym: boolean to skip the lower triangular possibly redundant labels
+    hide_diag: boolean to skip the label over the diagonal of the matrix
     kwargs for the text
     """
 

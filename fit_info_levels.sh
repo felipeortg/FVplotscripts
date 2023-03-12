@@ -32,6 +32,10 @@ for fit in `ls`
 do
     cd $fit
 
+    if [[ $? -ne 0 ]]; then
+	continue
+    fi
+    
     echo $fit
     for t0 in `ls -F | grep /`
     do

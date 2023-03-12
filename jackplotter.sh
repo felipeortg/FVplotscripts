@@ -29,7 +29,7 @@ fi
 correl=$1
 
 if [[ $# -gt 1 ]]; then
-    realpart=1
+    realpart=$2
 else
     realpart=0
 fi

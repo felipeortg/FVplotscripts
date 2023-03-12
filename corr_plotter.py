@@ -64,11 +64,16 @@ if save:
 
 
 
-axs = mJK.plt.subplots()[1]
+
+
+fig, axs = mJK.plt.subplots()
 corr = mJK.corr_mat_from_file(jackfile, axs, mask=mask)
 
+data_size = mJK.np.shape(corr)[0]
+fig.set_size_inches([(data_size/30*0.8+.2)*ss for ss in fig.get_size_inches()])
+
 if labels:
-    mJK.add_labels_matrix(axs, corr)
+    mJK.add_labels_matrix(axs, corr, hide_diag=True,)
 
 if save:
     mJK.plt.savefig(outfile + '.pdf',transparent=True,bbox_inches='tight')
