@@ -8,6 +8,7 @@ errorflag = False
 
 LatticeLength = None
 chi = None
+nus = None
 
 masses = None
 names = None
@@ -45,7 +46,7 @@ def init_lattice_props(lattname):
     # particles
     global masses,names,thresholdsm,thresholdsp,thresholdsmp,extrathresholdsm,extrathresholdsp,extrathresholdsmp
     # Lattice
-    global LatticeLength,chi,Lrange,colors,free_file_sca,free_file_red
+    global LatticeLength,chi,nus,Lrange,colors,free_file_sca,free_file_red
     # Plots
     global energyrangem, energyrangep, energyrangemp, errorbarwidth
 
@@ -67,7 +68,7 @@ def init_lattice_props(lattname):
 
         LatticeLength = 24
         chi = 3.455
-
+        nus = 4.3 / 3.4
 
         mesons = {
             'pion_proj0' : {'mass' : mpion, 'name' : r'\pi{}'},

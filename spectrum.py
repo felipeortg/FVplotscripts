@@ -540,5 +540,44 @@ def read_Ecm_xml(filename):
     return fitted_levels_lvl_dict
 
 
+def read_ini_file(filename):
+    """ Read an Ecm_data.ini or mel_list file and return a dictionary per irrep """
 
+    # Fill this dict number of levels
+    levelsinirrep = dict()
+
+
+    with open(filename, 'r') as f:
+        for line in f:
+            elems = line.split(' ')
+
+            irrep = elems[1] + '_' + elems[2]
+
+            if '(*)' in line: #starred levels in ini are to be ignored
+                continue
+
+            data = dict()
+            data['vol'] = elems[0]
+            data['mom'] = label2vec(elems[1])
+            data['irre'] = elems[2]
+            data['lvl_num'] = elems[3]
+            data['file_name'] = elems[4].rstrip()
+
+
+            if irrep in levelsinirrep:
+                levelsinirrep[irrep].append(data)
+            else:
+                levelsinirrep[irrep] = [data]
+
+
+    return levelsinirrep
+
+def label_state(state_dict):
+    """ return a string labeling a level dictionary """
+
+    # make sure it is canonical momentum
+    momentum = state_dict['mom']
+    momentum.sort()
+
+    return "V" + state_dict['vol'] + "_" + state_dict['irre'] + "_" + vec2label(momentum[::-1]) + "_#" + state_dict['lvl_num']
 
