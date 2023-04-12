@@ -560,7 +560,7 @@ def read_ini_file(filename):
             data['vol'] = elems[0]
             data['mom'] = label2vec(elems[1])
             data['irre'] = elems[2]
-            data['lvl_num'] = elems[3]
+            data['lvl_num'] = int(elems[3])
             data['file_name'] = elems[4].rstrip()
 
 
@@ -576,8 +576,8 @@ def label_state(state_dict):
     """ return a string labeling a level dictionary """
 
     # make sure it is canonical momentum
-    momentum = state_dict['mom']
+    momentum = np.copy(state_dict['mom'])
     momentum.sort()
 
-    return "V" + state_dict['vol'] + "_" + state_dict['irre'] + "_" + vec2label(momentum[::-1]) + "_#" + state_dict['lvl_num']
+    return f"V{state_dict['vol']}_{state_dict['irre']}_{vec2label(momentum[::-1])}_#{state_dict['lvl_num']}"
 

@@ -24,6 +24,7 @@ if version.parse(imversion) < version.parse("2.6"):
 def read_Jack_file(filename, r_comp=0):
     """
     Read a Jack file from Roberts format: Ncfg Nt (0:r 1:c) 0 1
+    return cfgs, npoints, [xdata, ydata]
     r_comp {
         0 : real data
         1 : comp data real part
@@ -53,14 +54,20 @@ def read_Jack_file(filename, r_comp=0):
                     print("Not prepared for {0}".format(row))
                     print("Format should be: Ncfg Nt (0:r 1:c) 0 1")
                     raise ValueError
+                try:
+                    if comp != r_comp:
+                        err = []
+                        err.append("The type of file does not match the requested read")
+                        err.append("File: {0}, requested {1}".format(comp,r_comp))
+                        err.append("Use r_comp={0:real,1:real part of complex,2:imag part of complex")
+                        # print("\n".join(err))
+                        raise ValueError("\n".join(err))
+                except ValueError as e:
+                    if r_comp != 0:
+                        raise e
+                    print(e)
+                    print("!!!!! WARNING: reading real part by default")
 
-                if comp != r_comp:
-                    err = []
-                    err.append("The type of file does not match the requested read")
-                    err.append("File: {0}, requested {1}".format(comp,r_comp))
-                    err.append("Use r_comp={0:real,1:real part of complex,2:imag part of complex")
-                    # print("\n".join(err))
-                    raise ValueError("\n".join(err))
 
             else:
                 if count == 0:
@@ -845,7 +852,6 @@ def percent_significant_digits(num, percent=9):
 def simple_order_number(number):
     """ 
     Get the order of a number: floor of the log10 of the number
-    If p = 1 
     Assign order 0 to numbers [1, 10)
     Assign order 1 to numbers [10, 100)
     ...
@@ -1898,7 +1904,7 @@ def add_labels_matrix(ax, mat, sym=True, hide_diag=False, **kwargs):
             continue
         col = np.abs(label)
         # Some aesthetic, we dont need 1.00, 1 is enough, we dont need 0.7 or -0.7, .7 and -.7
-        text = f"${label:.2f}$".replace("0.", ".").replace("1.00","1").replace("-.00","0").replace("-0","0")
+        text = f"{label:.2f}".replace("0.", ".").replace("1.00","1").replace("-.00","0").replace("-0","0")
         if col < 0.7:
             ax.text(i,j,text,ha='center',va='center', c='k', **kwargs)
 
@@ -1906,13 +1912,13 @@ def add_labels_matrix(ax, mat, sym=True, hide_diag=False, **kwargs):
             ax.text(i,j,text,ha='center',va='center', c='w', **kwargs)
 
 """
-An idea for a image of the fit summary:
+An idea for an image of the fit summary:
 fit_info = []
 fit_info.extend(summ[-1])
 axs[0].text(0,.5,"\n".join(fit_info), transform=ax.transAxes, bbox=dict(ec='None',fc="None"), ha='left', va='center')
 
 
-An idea fro the correlation plots
+An idea for the correlation plots
 
 axs[0].axis('off')
 
