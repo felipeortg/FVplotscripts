@@ -547,6 +547,19 @@ def do_fit_limits_fixed(model, xd, yd, invcov, limits, fixed, **kwargs):
 
     return m
 
+def do_fit_fixed(model, xd, yd, invcov, fixed, **kwargs):
+    """
+    Do a fit over a set of data, place limits on the parameters or fix some of them
+    """
+    lsq = LeastSquares(model, xd, yd, invcov)
+    m = Minuit(lsq, **kwargs)
+    m.fixed = fixed
+    m.migrad()
+    m.hesse()
+    # m.minos()
+
+    return m
+
 def fit_data_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, fitfun=dict(fitfun="do_fit"), verb = 0, **kwargs):
     """
     Perform a JK fit to ydata=fun(xdata)
@@ -588,6 +601,8 @@ def fit_data_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, fitfun=dict(fitfu
         mean_fit = do_fit(fun, xdata, m_ydata, inv_cov_ydata, **kwargs)
     elif fitfun["fitfun"] == "do_fit_limits":
         mean_fit = do_fit_limits(fun, xdata, m_ydata, inv_cov_ydata, fitfun["limits"], **kwargs)
+    elif fitfun["fitfun"] == "do_fit_fixed":
+        mean_fit = do_fit_fixed(fun, xdata, m_ydata, inv_cov_ydata, fitfun["fixed"], **kwargs)
     elif fitfun["fitfun"] == "do_fit_limits_fixed":
         mean_fit = do_fit_limits_fixed(fun, xdata, m_ydata, inv_cov_ydata, fitfun["limits"], fitfun["fixed"], **kwargs)
     else:
@@ -621,6 +636,8 @@ def fit_data_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, fitfun=dict(fitfu
             m = do_fit(fun, xdata, jk_y, inv_cov_ydata, **priordict)
         elif fitfun["fitfun"] == "do_fit_limits":
             m = do_fit_limits(fun, xdata, jk_y, inv_cov_ydata, fitfun["limits"], **priordict)
+        elif fitfun["fitfun"] == "do_fit_fixed":
+            m = do_fit_fixed(fun, xdata, jk_y, inv_cov_ydata, fitfun["fixed"], **priordict)
         elif fitfun["fitfun"] == "do_fit_limits_fixed":
             m = do_fit_limits_fixed(fun, xdata, jk_y, inv_cov_ydata, fitfun["limits"], fitfun["fixed"], **priordict)
 
@@ -743,7 +760,7 @@ def fit_data(xdata, ydata, fun, verb = 0, limits=[None], inversion=None, **kwarg
             lim_fix['lims'].append(None)
             lim_fix['fixes'].append(True)
             num_fixed += 1
-            num_lim += 1 # even if none has limits it is easier to set it up this way
+            num_lim += 0
 
         else:
             lim_fix['lims'].append(limit)
@@ -755,6 +772,9 @@ def fit_data(xdata, ydata, fun, verb = 0, limits=[None], inversion=None, **kwarg
             fitfun = dict(fitfun="do_fit_limits_fixed",limits=lim_fix['lims'],fixed=lim_fix['fixes'])
         else:
             fitfun = dict(fitfun="do_fit_limits",limits=lim_fix['lims'])
+
+    if num_fixed:
+        fitfun = dict(fitfun="do_fit_fixed",fixed=lim_fix['fixes'])        
     else:
         fitfun = dict(fitfun="do_fit")
 
