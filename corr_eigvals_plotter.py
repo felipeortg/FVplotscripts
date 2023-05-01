@@ -81,7 +81,8 @@ axs1.set_ylabel(r"$\lambda_n/\lambda_0$")
 axs1.set_title("Correlation matrix normalized eigenvalues")
 
 if save:
-    fig1.savefig(outfile + '.pdf',transparent=True,bbox_inches='tight')
+    fig.savefig(outfile + '.pdf',transparent=True,bbox_inches='tight')
+    fig1.savefig(outfile + '_eigvals.pdf',transparent=True,bbox_inches='tight')
 else:
     mJK.plt.show()
 

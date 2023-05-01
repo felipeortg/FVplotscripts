@@ -479,10 +479,20 @@ def init_lattice_props(lattname):
 
         free_file_sca = drive_loc + 'Documents/JLab/rhoformfactor/kinematic region per lattice/interacting_levels/860/free_levels_scattering_devel_mod.txt'
     else:
-        print(lattname)
-        raise Exception('This lattice properties are not in here')
+        errorflag = True
 
 
 if errorflag:
     print(lattname)
+    print("Saved lattice info are:")
+    print("""
+24_a856
+24_a856_IG_1p
+24_a856_IG_1o2
+LL_a840_IG_1p
+16_20_24_a840_IG_1p
+24_a850_IG_1p
+LL_a860_IG_1p
+24_32_a860_IG_1p
+""")
     raise Exception('From errorflag: this lattice properties are not in here')

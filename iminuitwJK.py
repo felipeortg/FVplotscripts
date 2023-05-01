@@ -21,6 +21,24 @@ if version.parse(imversion) < version.parse("2.6"):
     raise Exception(f"iminuit version 2.6 or newer is required, version {imversion} found.")
 
 
+def type_Jack_file(filename):
+    with open(filename, 'r') as f:
+        # Fill this list with all our levels
+        data = csv.reader(f, delimiter=' ') #change from default comma
+
+        row = data.__next__()
+
+
+        cfgs, tl, comp = [int(row[0]), int(row[1]), int(row[2])] 
+
+        if comp != 0 and comp != 1:
+            print("Not prepared for {0}".format(row))
+            print("Format should be: Ncfg Nt (0:r 1:c) 0 1")
+            raise ValueError
+
+    return cfgs, tl, comp
+
+
 def read_Jack_file(filename, r_comp=0):
     """
     Read a Jack file from Roberts format: Ncfg Nt (0:r 1:c) 0 1
@@ -109,6 +127,7 @@ def write_Jack_file(newfile, dataarray, w_comp=0):
                 data_w_x = [[x,data.real, data.imag] for x,data in zip(xlist,datacfg)]
             else:
                 data_w_x = [[x,data] for x,data in zip(xlist,datacfg)]
+            
             for row in data_w_x:
                 data.writerow(row)
 

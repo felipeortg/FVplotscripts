@@ -39,8 +39,10 @@ comple=`head -1 $correl | awk '{print $3}'`
 if [[ ( $comple -eq 0 ) && ($realpart -eq 0) ]]; then
     calc $correl | awk '{print $1,$2,$3}' > /tmp/mean.jack
 elif [[ ($comple -eq 1 ) && ($realpart -eq 0) ]]; then
+    echo "plot real part"
     calcbc "real( $correl )" | awk '{print $1,$2,$3}' > /tmp/mean.jack
 elif [[ ($comple -eq 1 ) && ($realpart -eq 1) ]]; then
+    echo "plot imag part"
     calcbc "imag( $correl )" | awk '{print $1,$2,$3}' > /tmp/mean.jack
 else
     echo "Cannot plot the imaginary part of a real correlator ..."
