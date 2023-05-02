@@ -45,7 +45,7 @@ def get_df(index, names):
     sedcomm = SED + ' /#/d ' + axfile
     awkcomm =AWK + ' -v RS="" '+"'{if (NR == "+'"{0}"'.format(index + 1)+") print $0 }' "
     out = shell.run(sedcomm + " | " + awkcomm, 
-        shell=True, capture_output=True).stdout
+        shell=True, stdout=shell.PIPE).stdout
     
     
     file = io.StringIO(out.decode('UTF-8'))
@@ -53,7 +53,7 @@ def get_df(index, names):
     return pd.read_csv(file, delim_whitespace=True, names=names)
     
 
-datalen = int(shell.run(GREP + " '#e' " + axfile + " | wc -l", shell=True, capture_output=True).stdout)
+datalen = int(shell.run(GREP + " '#e' " + axfile + " | wc -l", shell=True, stdout=shell.PIPE).stdout)
 
 mode='Jackfitter'
 lineslen = 9
@@ -113,17 +113,17 @@ plt.xlabel(r'$t/a_t$')
 if len(sys.argv) > 3:   
     plt.title(str(sys.argv[3]))
 
-grepx = shell.run([GREP, "x ", axfile], capture_output=True).stdout.split()
+grepx = shell.run([GREP, "x ", axfile], stdout=shell.PIPE).stdout.split()
 xlims = [float(x) for x in grepx[1:]]
 
-grepy = shell.run([GREP, "y ", axfile], capture_output=True).stdout.split()
+grepy = shell.run([GREP, "y ", axfile], stdout=shell.PIPE).stdout.split()
 ylims = [float(y) for y in grepy[1:]]
 
 plt.xlim(xlims)
 plt.ylim(ylims)
 
 if mode == 'Jackfitter':
-    label = shell.run([GREP, "gx", axfile], capture_output=True).stdout.decode('UTF-8')
+    label = shell.run([GREP, "gx", axfile], stdout=shell.PIPE).stdout.decode('UTF-8')
 
 
     info0 = label.split(sep='"')
@@ -144,7 +144,7 @@ if mode == 'Jackfitter':
 
 elif mode == 'eigen':
 
-    linenum = int(shell.run("grep -n '#cs 1' {0}".format(axfile) + " | sed 's/:/ /g' | awk '{print $1}'", shell=True, capture_output=True).stdout)
+    linenum = int(shell.run("grep -n '#cs 1' {0}".format(axfile) + " | sed 's/:/ /g' | awk '{print $1}'", shell=True, stdout=shell.PIPE).stdout)
     fit_info = []
     label = []
     chiinfo = ""
