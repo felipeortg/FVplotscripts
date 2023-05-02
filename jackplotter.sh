@@ -26,6 +26,8 @@ if [[ ($# -lt 1) || ($# -gt 2) ]]; then
     exit 1
 fi
 
+rand=`perl -e 'print int(rand(1000));'`
+
 correl=$1
 
 if [[ $# -gt 1 ]]; then
@@ -37,18 +39,18 @@ fi
 comple=`head -1 $correl | awk '{print $3}'`
 
 if [[ ( $comple -eq 0 ) && ($realpart -eq 0) ]]; then
-    calc $correl | awk '{print $1,$2,$3}' > /tmp/mean.jack
+    calc $correl | awk '{print $1,$2,$3}' > /tmp/jackplot_${rand}.mean
 elif [[ ($comple -eq 1 ) && ($realpart -eq 0) ]]; then
     echo "plot real part"
-    calcbc "real( $correl )" | awk '{print $1,$2,$3}' > /tmp/mean.jack
+    calcbc "real( $correl )" | awk '{print $1,$2,$3}' > /tmp/jackplot_${rand}.mean
 elif [[ ($comple -eq 1 ) && ($realpart -eq 1) ]]; then
     echo "plot imag part"
-    calcbc "imag( $correl )" | awk '{print $1,$2,$3}' > /tmp/mean.jack
+    calcbc "imag( $correl )" | awk '{print $1,$2,$3}' > /tmp/jackplot_${rand}.mean
 else
     echo "Cannot plot the imaginary part of a real correlator ..."
     exit 1
 fi
 
-dfplotter.py /tmp/mean.jack 0 1 2
+dfplotter.py /tmp/jackplot_${rand}.mean 0 1 2
 
-rm /tmp/mean.jack
+rm /tmp/jackplot_${rand}.mean
