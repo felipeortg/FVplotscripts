@@ -5,6 +5,7 @@
 # @Version : 2.0
 # Macros to run read/write jackknife files, perform operations and fits, make visualizations.
 
+# qcdi version: no iminuit (and fitting) support
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,13 +13,13 @@ import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import csv
 # import subprocess
-from iminuit import Minuit
-from iminuit.util import describe, make_func_code
+# from iminuit import Minuit
+# from iminuit.util import describe, make_func_code
 
 from packaging import version
-from iminuit import __version__ as imversion
-if version.parse(imversion) < version.parse("2.6"):
-    raise Exception(f"iminuit version 2.6 or newer is required, version {imversion} found.")
+# from iminuit import __version__ as imversion
+# if version.parse(imversion) < version.parse("2.6"):
+#    raise Exception(f"iminuit version 2.6 or newer is required, version {imversion} found.")
 
 
 def type_Jack_file(filename):
@@ -505,313 +506,313 @@ def mprint(mat,round=100):
 ###################
 ###################
 
-class LeastSquares:
-    """
-    Generic least-squares cost function with error.
-    """
+# class LeastSquares:
+#     """
+#     Generic least-squares cost function with error.
+#     """
 
-    errordef = Minuit.LEAST_SQUARES # for Minuit to compute errors correctly
+#     errordef = Minuit.LEAST_SQUARES # for Minuit to compute errors correctly
 
-    def __init__(self, model, x, y, invcov):
-        self.model = model  # model predicts y for given x
-        self.func_code = make_func_code(describe(model)[1:])
-        self.x = np.asarray(x)
-        self.y = np.asarray(y)
-        self.invcov = np.asarray(invcov)
+#     def __init__(self, model, x, y, invcov):
+#         self.model = model  # model predicts y for given x
+#         self.func_code = make_func_code(describe(model)[1:])
+#         self.x = np.asarray(x)
+#         self.y = np.asarray(y)
+#         self.invcov = np.asarray(invcov)
 
-    def __call__(self, *par):  # we accept a variable number of model parameters
-        ym = self.model(self.x, *par)
-        return (self.y - ym) @ self.invcov @ (self.y - ym)
+#     def __call__(self, *par):  # we accept a variable number of model parameters
+#         ym = self.model(self.x, *par)
+#         return (self.y - ym) @ self.invcov @ (self.y - ym)
 
-    @property
-    def ndata(self):
-        return len(self.x)
+#     @property
+#     def ndata(self):
+#         return len(self.x)
 
-def do_fit(model, xd, yd, invcov, **kwargs):
-    """
-    Do a fit over a set of data
-    """
-    lsq = LeastSquares(model, xd, yd, invcov)
-    m = Minuit(lsq, **kwargs)
-    m.migrad()
-    m.hesse()
-    # m.minos()
+# def do_fit(model, xd, yd, invcov, **kwargs):
+#     """
+#     Do a fit over a set of data
+#     """
+#     lsq = LeastSquares(model, xd, yd, invcov)
+#     m = Minuit(lsq, **kwargs)
+#     m.migrad()
+#     m.hesse()
+#     # m.minos()
 
-    return m
+#     return m
 
-def do_fit_limits(model, xd, yd, invcov, limits, **kwargs):
-    """
-    Do a fit over a set of data, place limits on the parameters
-    """
-    lsq = LeastSquares(model, xd, yd, invcov)
-    m = Minuit(lsq, **kwargs)
-    m.limits = limits
-    m.migrad()
-    m.hesse()
-    # m.minos()
+# def do_fit_limits(model, xd, yd, invcov, limits, **kwargs):
+#     """
+#     Do a fit over a set of data, place limits on the parameters
+#     """
+#     lsq = LeastSquares(model, xd, yd, invcov)
+#     m = Minuit(lsq, **kwargs)
+#     m.limits = limits
+#     m.migrad()
+#     m.hesse()
+#     # m.minos()
 
-    return m
+#     return m
 
-def do_fit_limits_fixed(model, xd, yd, invcov, limits, fixed, **kwargs):
-    """
-    Do a fit over a set of data, place limits on the parameters or fix some of them
-    """
-    lsq = LeastSquares(model, xd, yd, invcov)
-    m = Minuit(lsq, **kwargs)
-    m.limits = limits
-    m.fixed = fixed
-    m.migrad()
-    m.hesse()
-    # m.minos()
+# def do_fit_limits_fixed(model, xd, yd, invcov, limits, fixed, **kwargs):
+#     """
+#     Do a fit over a set of data, place limits on the parameters or fix some of them
+#     """
+#     lsq = LeastSquares(model, xd, yd, invcov)
+#     m = Minuit(lsq, **kwargs)
+#     m.limits = limits
+#     m.fixed = fixed
+#     m.migrad()
+#     m.hesse()
+#     # m.minos()
 
-    return m
+#     return m
 
-def do_fit_fixed(model, xd, yd, invcov, fixed, **kwargs):
-    """
-    Do a fit over a set of data, place limits on the parameters or fix some of them
-    """
-    lsq = LeastSquares(model, xd, yd, invcov)
-    m = Minuit(lsq, **kwargs)
-    m.fixed = fixed
-    m.migrad()
-    m.hesse()
-    # m.minos()
+# def do_fit_fixed(model, xd, yd, invcov, fixed, **kwargs):
+#     """
+#     Do a fit over a set of data, place limits on the parameters or fix some of them
+#     """
+#     lsq = LeastSquares(model, xd, yd, invcov)
+#     m = Minuit(lsq, **kwargs)
+#     m.fixed = fixed
+#     m.migrad()
+#     m.hesse()
+#     # m.minos()
 
-    return m
+#     return m
 
-def fit_data_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, fitfun=dict(fitfun="do_fit"), verb = 0, **kwargs):
-    """
-    Perform a JK fit to ydata=fun(xdata)
-    covariance matrix is provided as input
-    provide the initial value of the fit parameters as kwargs
-    This function should be used internally
-    """
+# def fit_data_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, fitfun=dict(fitfun="do_fit"), verb = 0, **kwargs):
+#     """
+#     Perform a JK fit to ydata=fun(xdata)
+#     covariance matrix is provided as input
+#     provide the initial value of the fit parameters as kwargs
+#     This function should be used internally
+#     """
 
-    ydata, m_ydata = ydata_and_m
+#     ydata, m_ydata = ydata_and_m
 
-    if verb > 1:
-        print("Mean of data, and size of cov matrix")
-        print(m_ydata)
-        print(np.shape(inv_cov_ydata))
-        print("-------")
+#     if verb > 1:
+#         print("Mean of data, and size of cov matrix")
+#         print(m_ydata)
+#         print(np.shape(inv_cov_ydata))
+#         print("-------")
 
-    if verb > 2:
-        print("Cov matrix")
-        mprint(np.linalg.inv(inv_cov_ydata),1e9)
-        print("-------")
-        print(np.linalg.svd(inv_cov_ydata,compute_uv=False))
-        print("-------")
-        print(1/np.linalg.svd((covmatense(ydata, m_ydata)),compute_uv=False))
+#     if verb > 2:
+#         print("Cov matrix")
+#         mprint(np.linalg.inv(inv_cov_ydata),1e9)
+#         print("-------")
+#         print(np.linalg.svd(inv_cov_ydata,compute_uv=False))
+#         print("-------")
+#         print(1/np.linalg.svd((covmatense(ydata, m_ydata)),compute_uv=False))
 
     
-    if verb > 0:
-        print("Correlation matrix of the data")
-        mprint(cormatense(ydata, m_ydata))
+#     if verb > 0:
+#         print("Correlation matrix of the data")
+#         mprint(cormatense(ydata, m_ydata))
 
-        print("-------")     
-        print("Correlation matrix used for the fit")
-        mprint(cov2cor(np.linalg.inv(inv_cov_ydata)))
-        print("-------")
-
-
-    # Do fit to mean to get priors
-    # Two types of fit so far, can extend it arbitrarily
-    if fitfun["fitfun"] == "do_fit" :
-        mean_fit = do_fit(fun, xdata, m_ydata, inv_cov_ydata, **kwargs)
-    elif fitfun["fitfun"] == "do_fit_limits":
-        mean_fit = do_fit_limits(fun, xdata, m_ydata, inv_cov_ydata, fitfun["limits"], **kwargs)
-    elif fitfun["fitfun"] == "do_fit_fixed":
-        mean_fit = do_fit_fixed(fun, xdata, m_ydata, inv_cov_ydata, fitfun["fixed"], **kwargs)
-    elif fitfun["fitfun"] == "do_fit_limits_fixed":
-        mean_fit = do_fit_limits_fixed(fun, xdata, m_ydata, inv_cov_ydata, fitfun["limits"], fitfun["fixed"], **kwargs)
-    else:
-        raise ValueError("Fit unsupported, options are do_fit, do_fit_limits and do_fit_limits_fixed")
+#         print("-------")     
+#         print("Correlation matrix used for the fit")
+#         mprint(cov2cor(np.linalg.inv(inv_cov_ydata)))
+#         print("-------")
 
 
-    if not mean_fit.valid:
-        print(mean_fit)
-        raise Exception("The fit to the mean data was not valid")
-
-    if verb > 0:
-        print("Fit to the mean result:")
-        print(mean_fit)
-        print("-------")
-
-    priors = mean_fit.values
-    priordict = {}
-    for nn, ele in enumerate(mean_fit.parameters):
-        priordict[ele] = priors[nn]
-
-    # Do fit to each Jackknife sample
-    y_down = jackdown(ydata)
-
-    chi2 = []
-    paramsjk = []
-    failed = 0
-
-    for nn, jk_y in enumerate(y_down):
-        # already checked the types in the dictionary, no need to add "try:" here
-        if fitfun["fitfun"] == "do_fit" :
-            m = do_fit(fun, xdata, jk_y, inv_cov_ydata, **priordict)
-        elif fitfun["fitfun"] == "do_fit_limits":
-            m = do_fit_limits(fun, xdata, jk_y, inv_cov_ydata, fitfun["limits"], **priordict)
-        elif fitfun["fitfun"] == "do_fit_fixed":
-            m = do_fit_fixed(fun, xdata, jk_y, inv_cov_ydata, fitfun["fixed"], **priordict)
-        elif fitfun["fitfun"] == "do_fit_limits_fixed":
-            m = do_fit_limits_fixed(fun, xdata, jk_y, inv_cov_ydata, fitfun["limits"], fitfun["fixed"], **priordict)
-
-        if m.valid:
-            chi2.append(m.fval)
-            paramsjk.append(m.values)
-        else:
-            failed += 1
-            print("The fit {0} did not converge".format(nn))
-            print(jk_y)
-            print(m)
-            print("-------")
-
-    siz = ydata.shape[0]
-    print("{0} out of {1} JK fits successful".format(siz-failed,siz))
-
-    params_up = jackup(paramsjk)
-
-    # the average is independent of whether or not the ensemble is scaled up or down
-    # chi2_up = jackup(chi2)
-    mean_chi2 = meanense(chi2)
+#     # Do fit to mean to get priors
+#     # Two types of fit so far, can extend it arbitrarily
+#     if fitfun["fitfun"] == "do_fit" :
+#         mean_fit = do_fit(fun, xdata, m_ydata, inv_cov_ydata, **kwargs)
+#     elif fitfun["fitfun"] == "do_fit_limits":
+#         mean_fit = do_fit_limits(fun, xdata, m_ydata, inv_cov_ydata, fitfun["limits"], **kwargs)
+#     elif fitfun["fitfun"] == "do_fit_fixed":
+#         mean_fit = do_fit_fixed(fun, xdata, m_ydata, inv_cov_ydata, fitfun["fixed"], **kwargs)
+#     elif fitfun["fitfun"] == "do_fit_limits_fixed":
+#         mean_fit = do_fit_limits_fixed(fun, xdata, m_ydata, inv_cov_ydata, fitfun["limits"], fitfun["fixed"], **kwargs)
+#     else:
+#         raise ValueError("Fit unsupported, options are do_fit, do_fit_limits and do_fit_limits_fixed")
 
 
-    return mean_fit, params_up, mean_chi2
+#     if not mean_fit.valid:
+#         print(mean_fit)
+#         raise Exception("The fit to the mean data was not valid")
 
-def invert_cov(cov_ydata, svd_reset=None):
-    """
-    svd_reset can be, either use stores both to use later:
-    * num_reset: keep the n largest singular values
-    * rat_reset: keep (correlation) singular values above a ratio wrt the largest value
-    """
+#     if verb > 0:
+#         print("Fit to the mean result:")
+#         print(mean_fit)
+#         print("-------")
 
-    if svd_reset == None:
+#     priors = mean_fit.values
+#     priordict = {}
+#     for nn, ele in enumerate(mean_fit.parameters):
+#         priordict[ele] = priors[nn]
+
+#     # Do fit to each Jackknife sample
+#     y_down = jackdown(ydata)
+
+#     chi2 = []
+#     paramsjk = []
+#     failed = 0
+
+#     for nn, jk_y in enumerate(y_down):
+#         # already checked the types in the dictionary, no need to add "try:" here
+#         if fitfun["fitfun"] == "do_fit" :
+#             m = do_fit(fun, xdata, jk_y, inv_cov_ydata, **priordict)
+#         elif fitfun["fitfun"] == "do_fit_limits":
+#             m = do_fit_limits(fun, xdata, jk_y, inv_cov_ydata, fitfun["limits"], **priordict)
+#         elif fitfun["fitfun"] == "do_fit_fixed":
+#             m = do_fit_fixed(fun, xdata, jk_y, inv_cov_ydata, fitfun["fixed"], **priordict)
+#         elif fitfun["fitfun"] == "do_fit_limits_fixed":
+#             m = do_fit_limits_fixed(fun, xdata, jk_y, inv_cov_ydata, fitfun["limits"], fitfun["fixed"], **priordict)
+
+#         if m.valid:
+#             chi2.append(m.fval)
+#             paramsjk.append(m.values)
+#         else:
+#             failed += 1
+#             print("The fit {0} did not converge".format(nn))
+#             print(jk_y)
+#             print(m)
+#             print("-------")
+
+#     siz = ydata.shape[0]
+#     print("{0} out of {1} JK fits successful".format(siz-failed,siz))
+
+#     params_up = jackup(paramsjk)
+
+#     # the average is independent of whether or not the ensemble is scaled up or down
+#     # chi2_up = jackup(chi2)
+#     mean_chi2 = meanense(chi2)
+
+
+#     return mean_fit, params_up, mean_chi2
+
+# def invert_cov(cov_ydata, svd_reset=None):
+#     """
+#     svd_reset can be, either use stores both to use later:
+#     * num_reset: keep the n largest singular values
+#     * rat_reset: keep (correlation) singular values above a ratio wrt the largest value
+#     """
+
+#     if svd_reset == None:
     
-        # Invert the covariance matrix
-        try:
-            inv_cov_ydata=np.linalg.inv(cov_ydata)
-        except:
-            print("Eigenvalues of the covariance matrix should be non-zero, and by def positive")
-            print(np.linalg.eigvalsh(cov_ydata))
-            raise Exception('Inversion of covariance data failed, maybe try an svd reset with inversion keyword')
+#         # Invert the covariance matrix
+#         try:
+#             inv_cov_ydata=np.linalg.inv(cov_ydata)
+#         except:
+#             print("Eigenvalues of the covariance matrix should be non-zero, and by def positive")
+#             print(np.linalg.eigvalsh(cov_ydata))
+#             raise Exception('Inversion of covariance data failed, maybe try an svd reset with inversion keyword')
 
-    else:
-        u, s, vh = np.linalg.svd(cov_ydata, hermitian = True)
+#     else:
+#         u, s, vh = np.linalg.svd(cov_ydata, hermitian = True)
 
-        cor_ydata = cov2cor(cov_ydata)
-        scor = np.linalg.svd(cor_ydata, compute_uv=False, hermitian = True)
+#         cor_ydata = cov2cor(cov_ydata)
+#         scor = np.linalg.svd(cor_ydata, compute_uv=False, hermitian = True)
 
-        s_reset = np.zeros(len(s))
+#         s_reset = np.zeros(len(s))
 
-        if "num_reset" in svd_reset:
+#         if "num_reset" in svd_reset:
 
-            kept_svds = len(s) - svd_reset["num_reset"]
+#             kept_svds = len(s) - svd_reset["num_reset"]
  
-            # get the ratio reset in case we need later
-            if kept_svds == len(s):
-                svd_reset["rat_reset"] = 0
-            else:
-                svd_reset["rat_reset"] = scor[kept_svds]/scor[0]
+#             # get the ratio reset in case we need later
+#             if kept_svds == len(s):
+#                 svd_reset["rat_reset"] = 0
+#             else:
+#                 svd_reset["rat_reset"] = scor[kept_svds]/scor[0]
 
-            if kept_svds < 1:
-                raise Exception("Cannot remove {0} singular values, the dof are only {1}".format(svd_reset["num_reset"], len(s)))
+#             if kept_svds < 1:
+#                 raise Exception("Cannot remove {0} singular values, the dof are only {1}".format(svd_reset["num_reset"], len(s)))
 
-            s_reset[:kept_svds] = 1/s[:kept_svds]
+#             s_reset[:kept_svds] = 1/s[:kept_svds]
 
-        elif "rat_reset" in svd_reset:
-            s_reset[0] = 1./s[0]
-            kept_svds = 1
-            for nn, sing_val in enumerate(scor[1:]):
-                if sing_val/scor[0] > svd_reset["rat_reset"]:
-                    kept_svds += 1
-                    s_reset[nn+1] = 1/s[1+nn]
-                else:
-                    break
+#         elif "rat_reset" in svd_reset:
+#             s_reset[0] = 1./s[0]
+#             kept_svds = 1
+#             for nn, sing_val in enumerate(scor[1:]):
+#                 if sing_val/scor[0] > svd_reset["rat_reset"]:
+#                     kept_svds += 1
+#                     s_reset[nn+1] = 1/s[1+nn]
+#                 else:
+#                     break
 
-            svd_reset["num_reset"] = len(s) - kept_svds
+#             svd_reset["num_reset"] = len(s) - kept_svds
 
-        else:
-            raise ValueError(
-            """
-            svd_reset only has:
-            * num_reset: keep the n largest singular values
-            * rat_reset: keep (correlation) singular values above a ratio wrt the largest value
-            """)
+#         else:
+#             raise ValueError(
+#             """
+#             svd_reset only has:
+#             * num_reset: keep the n largest singular values
+#             * rat_reset: keep (correlation) singular values above a ratio wrt the largest value
+#             """)
 
-        inv_cov_ydata = u @ np.diag(s_reset) @ vh 
-        print(svd_reset)
+#         inv_cov_ydata = u @ np.diag(s_reset) @ vh 
+#         print(svd_reset)
 
-    return inv_cov_ydata
+#     return inv_cov_ydata
 
-def fit_data(xdata, ydata, fun, verb = 0, limits=[None], inversion=None, **kwargs):
-    """
-    Perform a JK fit to ydata=fun(xdata) using the ydata ensemble to calculate covariance
-    provide the initial value of the fit parameters as kwargs
+# def fit_data(xdata, ydata, fun, verb = 0, limits=[None], inversion=None, **kwargs):
+#     """
+#     Perform a JK fit to ydata=fun(xdata) using the ydata ensemble to calculate covariance
+#     provide the initial value of the fit parameters as kwargs
     
-    * Limits can be provided in a list, the list needs to be the same length as the variables
-        - None for no limit
-        - use 1 value to fix variable
-        - [low_lim, up_lim], one of them can be None if no up/low lim
-            if low_lim=up_lim the variable will also be fixed
+#     * Limits can be provided in a list, the list needs to be the same length as the variables
+#         - None for no limit
+#         - use 1 value to fix variable
+#         - [low_lim, up_lim], one of them can be None if no up/low lim
+#             if low_lim=up_lim the variable will also be fixed
 
-    *Inversion for covariance:
-        - None for normal inversion
-        - "diag" to ignore off diagonal covariance elements in inversion
-        - dict(num_reset) to reset a certain number of smallest *covariance* eigvals 
-        - dict(rat_reset) to reset *correlation* eigvals smaller than rat_reset * (bigger eigval)
-    """
-    # print(xdata,ydata)
+#     *Inversion for covariance:
+#         - None for normal inversion
+#         - "diag" to ignore off diagonal covariance elements in inversion
+#         - dict(num_reset) to reset a certain number of smallest *covariance* eigvals 
+#         - dict(rat_reset) to reset *correlation* eigvals smaller than rat_reset * (bigger eigval)
+#     """
+#     # print(xdata,ydata)
 
-    # check for limits and fixed
-    lim_fix = dict(lims = [], fixes = [])
-    num_lim = 0
-    num_fixed = 0
-    for limit in limits:
-        if limit == None:
-            lim_fix['lims'].append(limit)
-            lim_fix['fixes'].append(False)
+#     # check for limits and fixed
+#     lim_fix = dict(lims = [], fixes = [])
+#     num_lim = 0
+#     num_fixed = 0
+#     for limit in limits:
+#         if limit == None:
+#             lim_fix['lims'].append(limit)
+#             lim_fix['fixes'].append(False)
 
-        elif len(limit) == 1 or limit[0] == limit[1]:
-            lim_fix['lims'].append(None)
-            lim_fix['fixes'].append(True)
-            num_fixed += 1
-            num_lim += 0
+#         elif len(limit) == 1 or limit[0] == limit[1]:
+#             lim_fix['lims'].append(None)
+#             lim_fix['fixes'].append(True)
+#             num_fixed += 1
+#             num_lim += 0
 
-        else:
-            lim_fix['lims'].append(limit)
-            lim_fix['fixes'].append(False)
-            num_lim +=1
+#         else:
+#             lim_fix['lims'].append(limit)
+#             lim_fix['fixes'].append(False)
+#             num_lim +=1
 
-    if num_lim:
-        if num_fixed:
-            fitfun = dict(fitfun="do_fit_limits_fixed",limits=lim_fix['lims'],fixed=lim_fix['fixes'])
-        else:
-            fitfun = dict(fitfun="do_fit_limits",limits=lim_fix['lims'])
+#     if num_lim:
+#         if num_fixed:
+#             fitfun = dict(fitfun="do_fit_limits_fixed",limits=lim_fix['lims'],fixed=lim_fix['fixes'])
+#         else:
+#             fitfun = dict(fitfun="do_fit_limits",limits=lim_fix['lims'])
 
-    if num_fixed:
-        fitfun = dict(fitfun="do_fit_fixed",fixed=lim_fix['fixes'])        
-    else:
-        fitfun = dict(fitfun="do_fit")
-
-
-    # the average is used for the initial fit, and to compute the covariance
-    m_ydata = meanense(ydata)
-
-    # check for how to invert covariance
-    if inversion == "diag":
-        cov_ydata = np.diag(np.diag(covmatense(ydata, m_ydata)))
-        inv_cov = invert_cov(cov_ydata)
-
-    else:
-        cov_ydata = covmatense(ydata, m_ydata)
-        inv_cov = invert_cov(cov_ydata, inversion)
+#     if num_fixed:
+#         fitfun = dict(fitfun="do_fit_fixed",fixed=lim_fix['fixes'])        
+#     else:
+#         fitfun = dict(fitfun="do_fit")
 
 
-    return fit_data_input_cov(xdata, (ydata, m_ydata), fun, inv_cov, fitfun=fitfun, verb=verb, **kwargs)
+#     # the average is used for the initial fit, and to compute the covariance
+#     m_ydata = meanense(ydata)
+
+#     # check for how to invert covariance
+#     if inversion == "diag":
+#         cov_ydata = np.diag(np.diag(covmatense(ydata, m_ydata)))
+#         inv_cov = invert_cov(cov_ydata)
+
+#     else:
+#         cov_ydata = covmatense(ydata, m_ydata)
+#         inv_cov = invert_cov(cov_ydata, inversion)
+
+
+#     return fit_data_input_cov(xdata, (ydata, m_ydata), fun, inv_cov, fitfun=fitfun, verb=verb, **kwargs)
 
 
 def order_number(number, p = 1):
