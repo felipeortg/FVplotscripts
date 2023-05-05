@@ -1483,6 +1483,32 @@ def plot_line_model(ax, lab, nn, xd, model, params_ense, factor=dummy_factor):
 
     return out
 
+def plot_error_model(ax, lab, nn, xd, model, params_ense, factor=dummy_factor):
+    """
+    Plot the value of a model
+    input: axes, label, nn: color number, xd: min and max to get range, model function, params ensemble, [factor in xspace]
+
+    """
+
+    xarr = np.linspace(min(xd), max(xd), num=100)
+
+    paramsjk = jackdown(params_ense)
+
+    pred = []
+    for paramset in paramsjk:
+        pred.append([model(xval, *paramset) * factor(xval) for xval in xarr])
+
+    predup = jackup(pred)
+
+    mean_pred = meanense(predup)
+    error_pred = errormean(predup, mean_pred)
+
+
+    out = ax.fill_between(xarr, -error_pred, error_pred, alpha=0.5, color = 'C'+str(nn), ec =None)
+    # out = ax.plot(xarr, mean_pred, c = 'C'+str(nn),label=lab, lw=1, zorder=1)
+
+    return out
+
 def plot_line_model_mean(ax, lab, nn, xd, model, params_ense, factor=dummy_factor):
     """
     Plot the value of a model
@@ -1540,15 +1566,16 @@ def get_line_model(xd, model, params_ense, factor=dummy_factor):
 
     """
 
-    xarr = xd
+    xarr = np.asarray(xd)
 
     paramsjk = jackdown(params_ense)
 
     pred = []
     for paramset in paramsjk:
-        pred.append([model(xval, *paramset) * factor(xval) for xval in xarr])
+        pred.append(model(xarr, *paramset))
 
-    predup = jackup(pred)
+    # this always returns an upscaled ensemble
+    predup = td_ensemble_op(factor, lambda x,y: x*y, xarr, pred, jackknifed = True)
 
     mean_pred = meanense(predup)
     error_pred = errormean(predup, mean_pred)
