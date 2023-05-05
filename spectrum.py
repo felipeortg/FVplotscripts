@@ -11,8 +11,13 @@ import xml.etree.ElementTree as ET
 
 def label2vec(ks):
     vec = []
-    for comp in range(len(ks)):
-        vec.append(int(ks[comp]))
+    comp_sign = +1
+    for comp in ks:
+        if comp=="-":
+            comp_sign*=-1
+            continue
+        vec.append(comp_sign*int(comp))
+        comp_sign = +1
     
     return np.array(vec)
 
