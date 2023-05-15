@@ -65,16 +65,18 @@ subduction_J1m = {
              }
 }
 
-#from 1203.6041v2 supplemental material and tab X
+#from 1203.6041v2 supplemental material
+# also save to GDrive/Documents/JLab/software/rotations and CG phases/summary
 # to add more use that
 rotation_lat = {
     "000": np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
-    "100": np.array([[0, 0, 1], [0, 1, 0], [1, 0, 0]]),
-    "110": np.array([[0, 0, 1], [0, 1, 0], [1, 0, 0]]),
+    "100": np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]]),
+    "110": np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]]),
     "111": np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
-    "200": np.array([[0, 0, 1], [0, 1, 0], [1, 0, 0]])
+    "200": np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]])
 }
 
+#from 1203.6041v2 and tab X
 rotation_ref = {
     "0": Euler_rot(0,0,0),
     "00n": Euler_rot(0,0,0),
