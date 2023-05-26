@@ -9,11 +9,15 @@
 import iminuitwJK as mJK
 import sys
 
-if len(sys.argv) != 3:
-    print(f"Usage is {sys.argv[0]} value error")
+if len(sys.argv) < 3:
+    print(f"Usage is {sys.argv[0]} value [+/-] error")
     exit(1)
+if sys.argv[2] == '+/-':
+    error = float(sys.argv[3])
+else:
+    error = float(sys.argv[2])
+
 value = float(sys.argv[1])
-error = float(sys.argv[2])
 
 ve_dict = mJK.value_error_rounding(value, error)
 

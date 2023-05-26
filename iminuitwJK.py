@@ -1994,4 +1994,38 @@ axs[1].set_yticklabels("")
 mJK.add_labels_matrix(axs[1], summ[1], size=12)
 """
 
+""" Example of a fit
+
+def exp(t, m, C):
+    return np.exp(-t*m) * C
+
+ncfgs, TL, xd, yd_check,a,b = mJK.maskdata("check_ortho_state0_state0.jack", mask=range(9))
+
+fit_check_corr = mJK.fit_data(xd, yd_check, exp, verb=0, m=.045, C=1)
+fit_check_corr[0]
+
+sum_check = mJK.summarize_fit_result(fit_check_corr)
+
+mass_exp = mJK.calc(fit_check_corr[1])[0,0]
+
+def lead_exp(t):    
+    return np.exp(mass_exp*(t))
+
+yd_check_res = mJK.td_ensemble_op(lead_exp, lambda x,y: x*y, xd, yd_check)
+
+yd_check_res_me = mJK.calc(yd_check_res)
+
+
+%matplotlib inline
+f, ax = plt.subplots(num=11)
+
+mJK.plot_data(ax, xd, yd_check_res_me[:,0], yd_check_res_me[:,1], 0, label='data')
+
+mJK.plot_line_model(ax, 'fit', 1, xd, exp, fit_check_corr[1], lead_exp)
+
+
+ax.text(0.05,.05, "\n".join(sum_check[2]), transform=ax.transAxes,  bbox=dict(fc="w"))
+ax.legend()
+
+"""
 
