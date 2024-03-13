@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import csv
+import re
 # import subprocess
 from iminuit import Minuit
 from iminuit.util import describe, make_func_code
@@ -700,12 +701,12 @@ def invert_cov(cov_ydata, svd_reset=None):
             raise Exception('Inversion of covariance data failed, maybe try an svd reset with inversion keyword')
 
     else:
-        u, s, vh = np.linalg.svd(cov_ydata, hermitian = True)
+        ydata_error_inv = np.diag(1/np.sqrt(np.diag(cov_ydata)))
 
         cor_ydata = cov2cor(cov_ydata)
-        scor = np.linalg.svd(cor_ydata, compute_uv=False, hermitian = True)
+        u, s, vh = np.linalg.svd(cor_ydata, hermitian = True)
 
-        s_reset = np.zeros(len(s))
+        s_inv_reset = np.zeros(len(s))
 
         if "num_reset" in svd_reset:
 
@@ -715,20 +716,20 @@ def invert_cov(cov_ydata, svd_reset=None):
             if kept_svds == len(s):
                 svd_reset["rat_reset"] = 0
             else:
-                svd_reset["rat_reset"] = scor[kept_svds]/scor[0]
+                svd_reset["rat_reset"] = s[kept_svds]/s[0]
 
             if kept_svds < 1:
                 raise Exception("Cannot remove {0} singular values, the dof are only {1}".format(svd_reset["num_reset"], len(s)))
 
-            s_reset[:kept_svds] = 1/s[:kept_svds]
+            s_inv_reset[:kept_svds] = 1/s[:kept_svds]
 
         elif "rat_reset" in svd_reset:
-            s_reset[0] = 1./s[0]
+            s_inv_reset[0] = 1./s[0]
             kept_svds = 1
-            for nn, sing_val in enumerate(scor[1:]):
-                if sing_val/scor[0] > svd_reset["rat_reset"]:
+            for nn, sing_val in enumerate(s[1:]):
+                if sing_val/s[0] > svd_reset["rat_reset"]:
                     kept_svds += 1
-                    s_reset[nn+1] = 1/s[1+nn]
+                    s_inv_reset[nn+1] = 1/s[1+nn]
                 else:
                     break
 
@@ -742,7 +743,7 @@ def invert_cov(cov_ydata, svd_reset=None):
             * rat_reset: keep (correlation) singular values above a ratio wrt the largest value
             """)
 
-        inv_cov_ydata = u @ np.diag(s_reset) @ vh 
+        inv_cov_ydata = ydata_error_inv @ u @ np.diag(s_inv_reset) @ vh @ ydata_error_inv
         print(svd_reset)
 
     return inv_cov_ydata
@@ -955,6 +956,9 @@ def value_error_rounding(value, error):
     # special case zero error (eg fixed params)
     if esd==0:
         out = dict(ntn = 'sh')
+        if value == 0: # just in case
+            out.update(vsd = value, vpr = 0, esd = 0, epr = 0, sci= False)
+            return out
         vord = simple_order_number(value)
         vsd = value/10**vord
         
@@ -970,7 +974,7 @@ def value_error_rounding(value, error):
             out.update(vsd = vsd, vpr = vdecimals, esd = 0, epr = 0, ord = vord, sci= True)
             return out
         
-        # keep at most 3 decimals, or 4sd
+        # sh, keep at most 3 decimals, or 4sd
         else:
             vdecimals = max(3, - vord  + 3)
             while vdecimals:
@@ -1434,17 +1438,54 @@ def summarize_result_corr(pars, mean_chi2, lenxdata, pretty_vars):
 
     ffit = len(mean_pars)
 
-    fit_info = [f"$\\chi^2$ / $n_\\mathrm{{dof}}$ = {mean_chi2:.1f} / ({lenxdata} - {ffit}) = {mean_chi2/(lenxdata - ffit):.2f}"]
-
-
     names = pretty_vars
+    fit_info = ['']
+    n_fix = 0
 
     for p, v, e in zip(names, mean_pars, np.diag(cov_pars)**(1/2)):
+        if e == 0:
+            n_fix += 1
+            p = p + "\\mathrm{\\ [fixed]}"
 
         fit_info.append(add_fit_info_ve(p, v, e))
 
+    print(n_fix)
+
+    fit_info[0] = f"$\\chi^2$ / $n_\\mathrm{{dof}}$ = {mean_chi2:.2f} / ({lenxdata} - {ffit-n_fix}) = {mean_chi2/(lenxdata - ffit + n_fix):.2f}"
+
+
+
+
     return [mean_pars, np.diag(cov_pars)**(1/2)], cor_pars, fit_info    
 
+def remove_fixed_variables_cor(input_cor, input_names):
+    fix_ind = []
+    new_names = []
+    for nn, col in enumerate(input_cor):
+        if sum(np.abs(col)) == 1:
+            fix_ind.append(nn)
+        else:
+            new_names.append(input_names[nn])
+
+    new_len = len(input_cor) - len(fix_ind)
+
+    new_cor = np.ones((new_len, new_len))
+
+    nn_new = 0
+    for nn in range(len(input_cor)):
+        mm_new = nn_new + 1
+        if nn in fix_ind:
+            continue
+        for mm in range(nn+1, len(input_cor)):
+            if mm in fix_ind:
+                continue
+            new_cor[nn_new, mm_new] = input_cor[nn, mm]
+            new_cor[mm_new, nn_new] = input_cor[mm, nn]
+            mm_new += 1
+
+        nn_new += 1
+
+    return new_cor, new_names
 
 
 
@@ -1477,8 +1518,34 @@ def plot_line_model(ax, lab, nn, xd, model, params_ense, factor=dummy_factor):
     error_pred = errormean(predup, mean_pred)
 
 
-    out = ax.fill_between(xarr, mean_pred-error_pred, mean_pred+error_pred, alpha=0.5, color = 'C'+str(nn), ec =None)
-    out = ax.plot(xarr, mean_pred, c = 'C'+str(nn),label=lab, lw=1, zorder=1)
+    out2 = ax.fill_between(xarr, mean_pred-error_pred, mean_pred+error_pred, alpha=0.5, facecolor = 'C'+ str(nn))
+    out1 = ax.plot(xarr, mean_pred, c = 'C'+str(nn),label=lab, lw=1, zorder=1)
+
+    return out1, out2
+
+def plot_line_model_color(ax, lab, xd, model, params_ense, color, factor=dummy_factor):
+    """
+    Plot the value of a model
+    input: axes, label, xd: min and max to get range, model function, params ensemble, color_kw, [factor in xspace]
+
+    """
+
+    xarr = np.linspace(min(xd), max(xd), num=100)
+
+    paramsjk = jackdown(params_ense)
+
+    pred = []
+    for paramset in paramsjk:
+        pred.append([model(xval, *paramset) * factor(xval) for xval in xarr])
+
+    predup = jackup(pred)
+
+    mean_pred = meanense(predup)
+    error_pred = errormean(predup, mean_pred)
+
+
+    out = ax.fill_between(xarr, mean_pred-error_pred, mean_pred+error_pred, alpha=0.5, facecolor = color)
+    out = ax.plot(xarr, mean_pred, c = color,label=lab, lw=1, zorder=1)
 
     return out
 
@@ -1503,7 +1570,7 @@ def plot_error_model(ax, lab, nn, xd, model, params_ense, factor=dummy_factor):
     error_pred = errormean(predup, mean_pred)
 
 
-    out = ax.fill_between(xarr, -error_pred, error_pred, alpha=0.5, color = 'C'+str(nn), ec =None)
+    out = ax.fill_between(xarr, -error_pred, error_pred, alpha=0.5, facecolor = 'C'+str(nn))
     # out = ax.plot(xarr, mean_pred, c = 'C'+str(nn),label=lab, lw=1, zorder=1)
 
     return out
@@ -1784,7 +1851,7 @@ def matrix_plot(ax, xd, matrix, cmap=None, norm=None, label_all=False):
 
 def correlation_plot(ax, xd, corr, label_all=False):
     """
-    A helper function to make a matrix plot
+    A helper function to make a correlation plot
 
     Parameters
     ----------
@@ -1846,6 +1913,42 @@ def plot_data(ax, xd, yd, yerr, nn, **kwargs):
                  elinewidth=1, capsize=3.5, **kwargs)
     return out
 
+def plot_data_xerr(ax, xd, xerr, yd, yerr, nn, **kwargs):
+    """
+    A helper function to make a graph
+
+    Parameters
+    ----------
+    ax : Axes
+        The axes to draw to
+
+    xd : array
+       The x data
+
+    yd : array
+       The y data
+
+    ye : array
+       The y data error
+
+    nn : integer
+       The color in the cycler
+
+    Returns
+    -------
+    out : list
+        list of artists added
+    """
+
+
+    # Assume the data and errors were calculated 
+
+    out = ax.errorbar(xd, yd, yerr, xerr,
+                 ls='', c = 'C'+str(nn),
+                 marker='.',mfc='w',ms=4, 
+                 elinewidth=1, capsize=3.5, **kwargs)
+    return out
+
 def plot_eff_mass(ax, correl, **kwargs):
 
     effmass = eff_mass(correl)
@@ -1864,6 +1967,7 @@ def plot_cfg_fromfile(filename, axs, mask = [], scaled = True):
     Input: jackfile, list of axs, only the first one will be used.
     Plot the individual configurations, and the contours over several standard deviations
     Outliers should be easy to spot with this visualization.
+    the scaled option is to subtract the mean and scale by the error
     """
 
     cfgs, npoints, xdata, ydata, xmasked, ymasked = maskdata(filename,mask )
@@ -1880,6 +1984,10 @@ def plot_cfg_fromfile(filename, axs, mask = [], scaled = True):
     m_ydata = meanense(ydata)
 
     e_ydata = errormean(ydata, m_ydata)
+
+    if len(xdata) == 1:
+        axs[0].hist(ydata, bins=int(cfgs/10))
+        return axs[0]
 
     cmap = mpl.cm.gist_rainbow
     cmap = cmap.reversed()
@@ -1923,6 +2031,71 @@ def plot_cfg_fromfile(filename, axs, mask = [], scaled = True):
 
     return axs[0]
 
+def plot_cfg_fromens(ensem, ax, scaled = True):
+    """
+    Input: ensemble, an ax.
+    Plot the individual configurations, and the contours over several standard deviations
+    Outliers should be easy to spot with this visualization.
+    the scaled option is to subtract the mean and scale by the error
+    """
+
+    cfgs = len(ensem[:,0])
+    npoints = len(ensem[0,:])
+    xdata = np.arange(0,npoints)
+    ydata = ensem
+
+    print("---")
+    print("xdata, shape(ydata):")
+    print(len(xdata),np.shape(ydata))
+    print("---")
+
+
+    m_ydata = meanense(ydata)
+
+    e_ydata = errormean(ydata, m_ydata)
+
+    cmap = mpl.cm.gist_rainbow
+    cmap = cmap.reversed()
+    norm = mpl.colors.Normalize(vmin=1, vmax=cfgs)
+
+    gcmap=plt.cm.get_cmap('Greys', 10)
+    gind = [i/10 for i in range(1,6)]
+    gind.extend(np.arange(5,0,-1)/10)
+    cmapc = mpl.colors.ListedColormap([gcmap(xx/.63) for xx in gind])
+
+    for nn, ycfg in enumerate(ydata):
+        if scaled:
+            ycfg = (ycfg - m_ydata)/(e_ydata*np.sqrt(cfgs))
+
+        ax.plot(xdata, ycfg, '_', ls='', color = cmap( norm( nn + 1 )))
+
+    xlims = ax.get_xlim()
+    ylims = ax.get_ylim()
+
+
+    Ny = 100
+
+    y = np.linspace(ylims[0], ylims[1], num= Ny)
+    X, Y = np.meshgrid(xdata, y)
+    if scaled:
+        Z = Y
+    else:
+        Z = (Y - m_ydata )/(e_ydata*np.sqrt(cfgs))
+
+    CS = ax.contourf(X, Y, Z,levels=np.arange(-9,11,2), cmap=cmapc)
+    CS1 = ax.contour(CS,colors='k',linestyles= 'solid', linewidths=.8)
+    labs = ax.clabel(CS1, inline=True, fontsize=10)
+
+    ax.set_xlim(xlims)
+
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("bottom", size="3%", pad=0.3)
+
+    plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
+                 cax=cax, label='Configuration', orientation = 'horizontal')
+
+    return ax
+
 def add_labels_correlation(covax, filename, mask=[], **kwargs):
     """
     Write values of matrix in a matshow axis when plotting correlation directly from a file
@@ -1963,6 +2136,8 @@ def add_labels_matrix(ax, mat, sym=True, hide_diag=False, **kwargs):
     kwargs for the text
     """
 
+    col_thres = np.max(mat)
+
     for (j,i),label in np.ndenumerate(mat):
         if i < j and sym:
             continue
@@ -1970,8 +2145,9 @@ def add_labels_matrix(ax, mat, sym=True, hide_diag=False, **kwargs):
             continue
         col = np.abs(label)
         # Some aesthetic, we dont need 1.00, 1 is enough, we dont need 0.7 or -0.7, .7 and -.7
-        text = f"{label:.2f}".replace("0.", ".").replace("1.00","1").replace("-.00","0").replace("-0","0")
-        if col < 0.7:
+        text = re.sub("^-?0.", lambda x:'.' if x.group(0)=='0.' else '-.', f"{label:.2f}")
+        text = text.replace("1.00","1").replace("-.00","0").replace("-0","0")
+        if col < 0.7*col_thres:
             ax.text(i,j,text,ha='center',va='center', c='k', **kwargs)
 
         else:
@@ -2025,6 +2201,7 @@ mJK.plot_line_model(ax, 'fit', 1, xd, exp, fit_check_corr[1], lead_exp)
 
 
 ax.text(0.05,.05, "\n".join(sum_check[2]), transform=ax.transAxes,  bbox=dict(fc="w"))
+ax.text(0.05,.05, "\n".join(sum_check[2]), transform=ax.transAxes,  bbox=dict(alpha=0))
 ax.legend()
 
 """
