@@ -4,11 +4,12 @@
 # @Author  : Felipe G. Ortega-Gama (felipeortegagama@gmail.com)
 
 drive_loc = '/Users/felipeortg/Google Drive/My Drive/'
-errorflag = False
 
 LatticeLength = None
 chi = None
+xi = None
 nus = None
+at = None
 
 masses = None
 names = None
@@ -43,10 +44,11 @@ free_file_sca = None
 
 
 def init_lattice_props(lattname):
+    errorflag = False
     # particles
     global masses,names,thresholdsm,thresholdsp,thresholdsmp,extrathresholdsm,extrathresholdsp,extrathresholdsmp
     # Lattice
-    global LatticeLength,chi,nus,Lrange,colors,free_file_sca,free_file_red
+    global LatticeLength,chi,xi,nus,at,Lrange,colors,free_file_sca,free_file_red
     # Plots
     global energyrangem, energyrangep, energyrangemp, errorbarwidth
 
@@ -69,6 +71,7 @@ def init_lattice_props(lattname):
         LatticeLength = 24
         chi = 3.455
         nus = 4.3 / 3.4
+        at = 0.2793 / 1.67245
 
         mesons = {
             'pion_proj0' : {'mass' : mpion, 'name' : r'\pi{}'},
@@ -150,7 +153,7 @@ def init_lattice_props(lattname):
             energyrangemp = [0.1,0.22]
 
             free_file_sca = drive_loc + 'Documents/JLab/rhoformfactor/kinematic region per lattice/xcheck/856/free_levels_scattering_devel_mod.txt'
-        else:
+        elif lattname[7:] != "":
             errorflag = True
 
 
@@ -482,17 +485,20 @@ def init_lattice_props(lattname):
         errorflag = True
 
 
-if errorflag:
-    print(lattname)
-    print("Saved lattice info are:")
-    print("""
-24_a856
-24_a856_IG_1p
-24_a856_IG_1o2
-LL_a840_IG_1p
-16_20_24_a840_IG_1p
-24_a850_IG_1p
-LL_a860_IG_1p
-24_32_a860_IG_1p
-""")
-    raise Exception('From errorflag: this lattice properties are not in here')
+    if errorflag:
+        print(lattname)
+        print("Saved lattice info are:")
+        print("""
+    24_a856
+    24_a856_IG_1p
+    24_a856_IG_1o2
+    LL_a840_IG_1p
+    16_20_24_a840_IG_1p
+    24_a850_IG_1p
+    LL_a860_IG_1p
+    24_32_a860_IG_1p
+    """)
+        raise Exception('From errorflag: this lattice properties are not in here')
+
+    # shorthand for back compatibility
+    xi=chi

@@ -65,6 +65,7 @@ for irrep in ecm_list:
         data.append(tmp[3])
 
 data_df = pd.DataFrame(irrep_list,columns=["irrep"])
+data_df["irrep"] = data_df["irrep"].apply(lambda x: "[" + x[:3] + "] $" + x[4] + "_" + x[5] + ("^-" if x[-1]=="m" else "") + "$")
 data_df["lvl"] = lvl_num
 
 
@@ -121,15 +122,15 @@ mJK.plt.savefig(f"{datafolder}/corr_svd.pdf", transparent=True, bbox_inches='tig
 
 #plot percentage error
 fig,ax = mJK.plt.subplots(1,1,num=3,figsize=(8,3))
-label_df.plot(x="x_labels", y="data_perr", ax=ax, ls='', marker='o', mfc='gray', label="\% error")
+label_df.plot(x="x_labels", y="data_perr", ax=ax, ls='', marker='o',color='k', mfc='w', label="\% error")
 
 
 # ax.set_ylim([0,1.4])
 ax.set_xticks(mJK.np.arange(len(dataordirrep)))
-ax.set_xticklabels(label_df["x_labels"], rotation=90, ha='left')
+ax.set_xticklabels(label_df["x_labels"], rotation=90, ha='center')
 ax.set_xlabel("")
 
-ax.grid(ls=":", color="gray", lw=0.5)
+ax.grid(ls=":", lw=0.7)
 
 mJK.plt.savefig(f"{datafolder}/perc_err.pdf", transparent=True, bbox_inches='tight')
 

@@ -1449,9 +1449,9 @@ def summarize_result_corr(pars, mean_chi2, lenxdata, pretty_vars):
 
         fit_info.append(add_fit_info_ve(p, v, e))
 
-    print(n_fix)
+    # print(n_fix)
 
-    fit_info[0] = f"$\\chi^2$ / $n_\\mathrm{{dof}}$ = {mean_chi2:.2f} / ({lenxdata} - {ffit-n_fix}) = {mean_chi2/(lenxdata - ffit + n_fix):.2f}"
+    fit_info[0] = f"$\\chi^2/\\text{{dof}} = {mean_chi2:.2f} / ({lenxdata} - {ffit-n_fix}) = {mean_chi2/(lenxdata - ffit + n_fix):.2f}$"
 
 
 
