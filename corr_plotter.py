@@ -18,10 +18,9 @@ save = False
 labels = False
 outn = 2
 if len(sys.argv) > 2:
+    outn += 1
     try:
         masksints = [int(n) for n in str(sys.argv[2]).split("-")]
-
-        outn += 1
 
         # when two values given make a range
         if len(masksints) == 2:
@@ -73,7 +72,7 @@ data_size = mJK.np.shape(corr)[0]
 fig.set_size_inches([(data_size/30*0.8+.2)*ss for ss in fig.get_size_inches()])
 
 if labels:
-    mJK.add_labels_matrix(axs, corr, hide_diag=True,)
+    mJK.add_labels_matrix(axs, corr, hide_diag=True, fontsize=6)
 
 if save:
     mJK.plt.savefig(outfile + '.pdf',transparent=True,bbox_inches='tight')
