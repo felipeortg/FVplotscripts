@@ -28,6 +28,8 @@ fi
 
 rand=`perl -e 'print int(rand(1000));'`
 
+# echo $1
+
 correl=$1
 
 if [[ $# -gt 1 ]]; then
