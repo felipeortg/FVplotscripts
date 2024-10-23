@@ -28,13 +28,18 @@ fi
 
 rand=`perl -e 'print int(rand(1000));'`
 
-correl=$1
+filepath=$1
 
 if [[ $# -gt 1 ]]; then
     realpart=$2
 else
     realpart=0
 fi
+
+correl=`basename $filepath`
+dircorr=`dirname $filepath`
+
+pushd $dircorr
 
 comple=`head -1 $correl | awk '{print $3}'`
 
@@ -50,6 +55,7 @@ else
     echo "Cannot plot the imaginary part of a real correlator ..."
     exit 1
 fi
+popd
 
 dfplotter.py /tmp/jackplot_${rand}.mean 0 1 2
 
