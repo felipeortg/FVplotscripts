@@ -20,7 +20,7 @@ if len(sys.argv) < 3 or len(sys.argv) > 5:
 
 filename = sys.argv[1]
 
-df = pd.read_csv(filename, delim_whitespace=True, header=None, comment="#")
+df = pd.read_csv(filename, sep='\\s+', header=None, comment="#")
 
 if len(sys.argv) < 4:
     ycol = int(sys.argv[2])
