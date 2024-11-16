@@ -166,7 +166,7 @@ def prune_Jack_file(filename, pruned_cfgs, r_comp=0):
             for row in datacfg:
                 data.writerow(row)
 
-    print("Changed to {0} configs, with {1} timeslices each".format(newcfgs, tl))
+    print("Changed to {0} configs, with {1} timeslices each.".format(newcfgs, tl))
     return newfile
 
 
@@ -197,6 +197,88 @@ def get_mask_from_noise(filename,nrcutoff,r_comp=0):
 
     return mask
 
+def sort_ensem_with_xd(xdata, ensem):
+    """
+    Sort ensemble by increasing values of xdata
+
+    Parameters
+    ----------
+    xdata : array / list
+
+    ensem : array (cfgs, len(xdata))
+        Ensemble of data
+
+    Returns 
+    -------
+    xdata, ensem :
+        sorted arrays
+    """
+
+    sorted_indices = np.argsort(xdata)
+
+    sorted_ensem = []
+    sorted_xdata = []
+
+    for ind in sorted_indices:
+        sorted_ensem.append(ensem[:, ind])
+        sorted_xdata.append(xdata[ind])
+
+
+    return sorted_xdata, np.transpose(np.array(sorted_ensem))
+
+
+
+def mask_xd_ensem(xdata, ensem, mask=[]):
+    """
+    Mask an xd and an ensemble according to a boolean mask array
+    True elements stay, False elements are masked away
+    Parameters
+    ----------
+    xdata : array
+
+    ensem : array (cfgs, len(xdata))
+        Ensemble of data
+
+    mask : list
+        boolean values to be masked
+
+    Returns
+    -------
+    xdata, ydata, xmasked, ymasked :
+        array and ensemble
+    """
+    if len(mask) == 0: # masking of the data
+            return xdata, ydata, [], []
+
+
+    xmasked = []
+    ymasked = []
+
+    xnew = xdata.copy()
+    ensemnew = np.copy(ensem)
+
+    lenxdata = len(xdata)
+    npoints = lenxdata
+
+    for nn, keep in enumerate(mask[-1::-1]): # need to go in reverse as we will remove vals
+        if keep: # no need to remove
+            continue
+
+        torem = lenxdata - nn - 1
+
+        # print(nn, torem, len(xdata), xdata[torem])
+        xmasked.append(xdata[torem])
+        ymasked.append(ensem[:,torem])
+
+        xnew.pop(torem)
+        newydata = np.delete(ensemnew,(torem), axis=1)
+        ensemnew = newydata
+
+        npoints-=1
+
+    print(f"There are {npoints} data values left after masking.")
+
+    return xnew, ensemnew, xmasked[-1::-1], np.transpose(np.array(ymasked[-1::-1]))
 
 def maskdata(filename, mask=[], r_comp=0):
     """ take File and return cfgs, npoints, xdata, ydata(ensemble), xmasked, ymasked(ensemble)
@@ -255,6 +337,19 @@ def get_data(filename, r_comp=0):
     ydata = np.array(rawdata)[:,:,1]
     
     return cfgs, npoints, xdata, ydata
+
+def get_ensem(filename, r_comp=0):
+    """ 
+    take File and return ydata(ensemble)
+    r_comp {
+        0 : real data
+        1 : comp data real part
+        2 : comp data imag part
+    }
+    """
+    cfgs, npoints, rawdata = read_Jack_file(filename, r_comp)
+
+    return np.array(rawdata)[:,:,1]
 
 ###################
 ###################
@@ -391,7 +486,8 @@ def combine_ensemble_list(list_of_ensems):
     """ Take a list of 1-dim arrays, eg from get_data,
     and put them into an ensemble array shape (confs, indep_index)
     """
-
+    cfgs = np.shape(np.array(list_of_ensems))[1]
+    print("There are {1} data values, with {0} configs each.".format(cfgs,len(list_of_ensems)))
     return np.transpose(np.array(list_of_ensems)[:,:,0])
 
 def change_mean_error(ensem, mean=None, error=None, jackknifed = False):
@@ -515,7 +611,8 @@ class LeastSquares:
 
     def __init__(self, model, x, y, invcov):
         self.model = model  # model predicts y for given x
-        self.func_code = make_func_code(describe(model)[1:])
+        # self.func_code = make_func_code(describe(model)[1:])
+        self._parameters = {k: None for k in describe(model)[1:]} # new version, limits can be given here ...
         self.x = np.asarray(x)
         self.y = np.asarray(y)
         self.invcov = np.asarray(invcov)
@@ -526,7 +623,7 @@ class LeastSquares:
 
     @property
     def ndata(self):
-        return len(self.x)
+        return len(self.y)
 
 def do_fit(model, xd, yd, invcov, **kwargs):
     """
@@ -1648,6 +1745,82 @@ def get_line_model(xd, model, params_ense, factor=dummy_factor):
 
     return mean_pred, error_pred
 
+def plot_fromensem(axs, xdata, ensem, nn=0, mask = []):
+    """ Get the data from a file and plot:
+    The mean with errors
+    The error to value ratio
+    The correlation and covariance
+    option to mask the input data
+
+    Parameters
+    ----------
+    axs : list
+        List of Axes where the plots are drawn
+
+    xdata : array
+       The x data
+
+    ensem : array (cfgs, len(xdata))
+       The ensemble to plot
+
+    nn : integer
+       The color in the cycler for ax1
+
+    mask : list
+        x-values to be masked
+
+    Returns
+    -------
+    out : list
+        list of artists added to ax1
+    """
+
+    if len(axs) == 0:
+        print("Axis list is empty, no plots")
+        return 1
+
+    # Check if the ensem and xdata array are compatible
+    if len(xdata) != np.shape(ensem)[1]:
+        raise Exception(f"The sizes of xdata and ensem are not compatible: {len(xdata)}, {np.shape(ensem)[1]}")
+
+    m_data = meanense(ensem)
+
+    e_data = errormean(ensem, m_data)
+
+    axs[0].set_title('Mean Data')
+
+    out = plot_data(axs[0], xdata, m_data, e_data, nn)
+
+    if len(axs) > 1:
+
+        axs[1].plot(xdata, np.abs(e_data/m_data), 'x', c = 'C'+str(nn))
+        axs[1].axhline(0,lw=1,color='k')
+        axs[1].axhline(0.12,lw=1,color='k')
+
+        xlims = axs[1].get_xlim()
+        ylims = axs[1].get_ylim()
+
+        axs[1].set_title('|err/val| ratio')
+
+    if len(axs) > 2:
+
+        corr = cormatense(ensem, m_data)
+
+        correlation_plot(axs[2], xdata, corr)
+        
+        axs[2].set_title('Correlation matrix')
+
+
+        if len(axs) > 3:
+            cov = covmatense(ensem, m_data)
+
+            matrix_plot(axs[3], xdata, np.log(np.abs(cov)))
+
+            axs[3].set_title('Log |Covariance matrix|')
+
+    return out
+
+
 def plot_fromfile(filename, axs, nn=0, mask = []):
     """ Get the data from a file and plot:
     The mean with errors
@@ -1725,16 +1898,13 @@ def plot_fromfile(filename, axs, nn=0, mask = []):
             axs[1].set_xlim(xlims)
             axs[1].set_ylim(ylims)
 
-        axs[1].set_title('err/val ratio')
+        axs[1].set_title('|err/val| ratio')
 
     if len(axs) > 2:
 
         corr = cormatense(ydata, m_ydata)
 
-        cmap = mpl.cm.RdBu_r
-        norm = mpl.colors.Normalize(vmin=-1, vmax=1)
-
-        matrix_plot(axs[2], xdata, corr, cmap=cmap, norm=norm)
+        correlation_plot(axs[2], xdata, corr)
         
         axs[2].set_title('Correlation matrix')
 
@@ -1909,7 +2079,8 @@ def plot_data(ax, xd, yd, yerr, nn, **kwargs):
 
     out = ax.errorbar(xd, yd, yerr,
                  ls='', c = 'C'+str(nn),
-                 marker='s',fillstyle='none',ms=4, 
+                 marker='s',mfc='w',#fillstyle='none',
+                 ms=4, 
                  elinewidth=1, capsize=3.5, **kwargs)
     return out
 
@@ -1948,6 +2119,42 @@ def plot_data_xerr(ax, xd, xerr, yd, yerr, nn, **kwargs):
                  marker='.',mfc='w',ms=4, 
                  elinewidth=1, capsize=3.5, **kwargs)
     return out
+
+
+def plot_ensemble_mean_err(ax, xd, ensem, nn=0, **kwargs):
+    """
+    A helper function to plot the mean and error of an ensemble
+
+    Parameters
+    ----------
+    ax : Axes
+        The axes to draw to
+
+    xd : array
+       The x data
+
+    ensem : array (cfgs, len(xd))
+       The ensemble to plot as y data and error
+
+    nn : integer
+       The color in the cycler
+
+    Returns
+    -------
+    out : list
+        list of artists added
+    """   
+
+    # Check if the ensem and xd array are compatible
+    if len(xd) != np.shape(ensem)[1]:
+        raise Exception(f"The sizes of xd and ensem are not compatible: {len(xd)}, {np.shape(ensem)[1]}")
+
+    mean_err = calc(ensem)
+    yd = mean_err[:,0]
+    yerr = mean_err[:,1]
+
+
+    return plot_data(ax, xd, yd, yerr, nn, **kwargs)
 
 def plot_eff_mass(ax, correl, **kwargs):
 

@@ -173,7 +173,7 @@ def init_lattice_props(lattname):
 
 
         # TABLE of 2008.06432 and references therein
-        mpion =  0.06906
+        mpion =  0.06906 # 1203.6041
         mkaon = 0.09698
         meta = 0.10364
         
@@ -184,7 +184,7 @@ def init_lattice_props(lattname):
         LatticeLength = int(lattname[:2])
         if not (LatticeLength in [16,20,24]):
             raise Exception('This volume: {0}, was not added'.format(LatticeLength))
-        chi = 3.444
+        chi = 3.444 # 1203.6041
 
 
         mesons = {
