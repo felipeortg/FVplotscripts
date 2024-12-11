@@ -2400,7 +2400,7 @@ yd_check_res_me = mJK.calc(yd_check_res)
 
 
 %matplotlib inline
-f, ax = plt.subplots(num=11)
+f, ax = plt.subplots(num=11, layout='constrained')
 
 mJK.plot_data(ax, xd, yd_check_res_me[:,0], yd_check_res_me[:,1], 0, label='data')
 
