@@ -643,13 +643,13 @@ class LeastSquares_bayesian_priors:
         if len(priors_mean) != len(priors_var):
             raise Exception("Mean and variance of priors should be same length")
 
-        self.pars_bay_prior = priors_mean
+        self.pars_bay_prior = np.asarray(priors_mean)
         self.pars_bay_prior_var = np.asarray(priors_var)
 
     def __call__(self, *par):  # we accept a variable number of model parameters
         ym = self.model(self.x, *par)
 
-        priors = np.array(self.pars_bay_prior - list(*par))**2/priors_var
+        priors = np.array(self.pars_bay_prior - [*par])**2/self.pars_bay_prior_var
 
         return (self.y - ym) @ self.invcov @ (self.y - ym) + np.sum(priors)
 
@@ -657,6 +657,17 @@ class LeastSquares_bayesian_priors:
     def ndata(self):
         return len(self.y)
 
+def do_fit_priors(model, xd, yd, invcov, bayesian_mean, bayesian_var, **kwargs):
+    """
+    Do a fit over a set of data
+    """
+    lsq = LeastSquares_bayesian_priors(model, xd, yd, invcov, bayesian_mean, bayesian_var,)
+    m = Minuit(lsq, **kwargs)
+    m.migrad()
+    m.hesse()
+    # m.minos()
+
+    return m
 
 def do_fit(model, xd, yd, invcov, **kwargs):
     """
