@@ -625,6 +625,39 @@ class LeastSquares:
     def ndata(self):
         return len(self.y)
 
+class LeastSquares_bayesian_priors:
+    """
+    Generic least-squares cost function with error.
+    """
+
+    errordef = Minuit.LEAST_SQUARES # for Minuit to compute errors correctly
+
+    def __init__(self, model, x, y, invcov, priors_mean, priors_var):
+        self.model = model  # model predicts y for given x
+        # self.func_code = make_func_code(describe(model)[1:])
+        self._parameters = {k: None for k in describe(model)[1:]} # new version, limits can be given here ...
+        self.x = np.asarray(x)
+        self.y = np.asarray(y)
+        self.invcov = np.asarray(invcov)
+
+        if len(priors_mean) != len(priors_var):
+            raise Exception("Mean and variance of priors should be same length")
+
+        self.pars_bay_prior = priors_mean
+        self.pars_bay_prior_var = np.asarray(priors_var)
+
+    def __call__(self, *par):  # we accept a variable number of model parameters
+        ym = self.model(self.x, *par)
+
+        priors = np.array(self.pars_bay_prior - list(*par))**2/priors_var
+
+        return (self.y - ym) @ self.invcov @ (self.y - ym) + np.sum(priors)
+
+    @property
+    def ndata(self):
+        return len(self.y)
+
+
 def do_fit(model, xd, yd, invcov, **kwargs):
     """
     Do a fit over a set of data
@@ -1746,7 +1779,7 @@ def get_line_model(xd, model, params_ense, factor=dummy_factor):
     return mean_pred, error_pred
 
 def plot_fromensem(axs, xdata, ensem, nn=0, mask = []):
-    """ Get the data from a file and plot:
+    """ Get the data from a ensemble and plot:
     The mean with errors
     The error to value ratio
     The correlation and covariance
