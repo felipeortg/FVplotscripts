@@ -33,6 +33,6 @@ tmaxdt=`expr $tmax - $dt `
 
 #echo "$1 = - log( real( extract( $correl , $dt, $tmax ) ) / real( extract( $correl , 0, $tmaxdt ) ) ) / $dt "
 
-ensbc "$effmass = - log( real( extract( $correl , $dt + 1 , $tmax ) ) / real( extract( $correl , 1 , $tmaxdt ) ) ) / $dt "
+ensbc "$effmass = - log( real( extract("'"'${correl}'"'", $dt + 1 , $tmax ) ) / real( extract( "'"'${correl}'"'" , 1 , $tmaxdt ) ) ) / $dt "
 
 

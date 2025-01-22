@@ -36,10 +36,7 @@ else
     realpart=0
 fi
 
-correl=`basename $filepath`
-dircorr=`dirname $filepath`
-
-pushd $dircorr
+correl=$filepath
 
 comple=`head -1 $correl | awk '{print $3}'`
 
@@ -47,15 +44,14 @@ if [[ ( $comple -eq 0 ) && ($realpart -eq 0) ]]; then
     calc $correl | awk '{print $1,$2,$3}' > /tmp/jackplot_${rand}.mean
 elif [[ ($comple -eq 1 ) && ($realpart -eq 0) ]]; then
     echo "plot real part"
-    calcbc "real( $correl )" | awk '{print $1,$2,$3}' > /tmp/jackplot_${rand}.mean
+    calcbc 'real( "'${correl}'" )' | awk '{print $1,$2,$3}' > /tmp/jackplot_${rand}.mean
 elif [[ ($comple -eq 1 ) && ($realpart -eq 1) ]]; then
     echo "plot imag part"
-    calcbc "imag( $correl )" | awk '{print $1,$2,$3}' > /tmp/jackplot_${rand}.mean
+    calcbc 'imag( "'${correl}'" )' | awk '{print $1,$2,$3}' > /tmp/jackplot_${rand}.mean
 else
     echo "Cannot plot the imaginary part of a real correlator ..."
     exit 1
 fi
-popd
 
 dfplotter.py /tmp/jackplot_${rand}.mean 0 1 2
 
