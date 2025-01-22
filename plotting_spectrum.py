@@ -145,6 +145,12 @@ for eth in extrathresholds:
 for level in spectrum:
     plt.errorbar(level[0], level[1], yerr=level[2], 
                  marker='_', mec='k', fillstyle='none', ecolor='k',elinewidth=1,capsize=10,zorder=4)
+
+    # support for BMA uncertainty
+    if len(level) > 3:
+        plt.errorbar(level[0], level[1], yerr=level[-1], 
+                 marker='_', mec='k', fillstyle='none', ecolor='k',elinewidth=1,capsize=10,zorder=4)       
+
     plt.plot()
 
 

@@ -254,7 +254,15 @@ def read_reconfit_file(filename, noise = .1):
                     print("###########\n WARNING: Noisy level ignored")
                     print(line)
                 else:
-                    spectrum.append([float(mass),float(unc)])
+
+                    # add support for mod avg error
+                    if len(elems) > 6:
+                        # remove trailing \n as it is last element in line...
+                        BMAunc = elems[-1].rstrip()
+                        spectrum.append([float(mass),float(unc), float(BMAunc)])
+
+                    else:
+                        spectrum.append([float(mass),float(unc)])
 
 
     return irrep, spectrum, t0str
@@ -470,16 +478,31 @@ def clean_calc_spectrum(dirty_spec, irrep, erange, chi, Lsize, Lwidth):
     place = 0
 
 
+    # add support for BMAerror
+    BMAmode = False
+    datlen = 3
+    if len(dirty_spec[0]) == 3:
+        BMAmode = True
+        datalen = 4
+
     irreP = label2vec(irrep[:3])
 
     for level in dirty_spec:
         En = level[0]
 
-        mass, unc = ecm_prop_unc(level, irreP, Lsize*chi)
+        mass, unc = ecm_prop_unc(level[:2], irreP, Lsize*chi)
+        
+        # propagate BMA uncertainty
+        if BMAmode:   
+            BMAunc = ecm_prop_unc([level[0], level[-1]], irreP, Lsize*chi)[-1]
 
         if mass + unc > erange[0] and mass - unc < erange[1]: #leave only levels in the energy ranges
-        
-            temp_list.append([Lsize, mass, unc, place])
+            
+            if not BMAmode:
+                temp_list.append([Lsize, mass, unc, place])
+            else:
+                temp_list.append([Lsize, mass, unc, BMAunc, place])
+
             place += 1
 
             # print(mass + unc, erange[0], mass - unc ,erange[1], mass)
@@ -499,14 +522,19 @@ def clean_calc_spectrum(dirty_spec, irrep, erange, chi, Lsize, Lwidth):
 
         overlapping_lvls = len(overlaps)
         if overlapping_lvls == 1:
-            clean_spec[temp_list[0][3]] = (temp_list[0][:3])
+            clean_spec[temp_list[0][-1]] = temp_list[0][:datalen]
 
         else:
             plotwidth = overlapping_lvls*Lwidth/2
             Lpositions = np.linspace(Lsize - plotwidth, Lsize + plotwidth, num = overlapping_lvls)
             for nn, L in enumerate(Lpositions):
                 pl = overlaps[nn]
-                clean_spec[temp_list[pl][3]] = [L, temp_list[pl][1], temp_list[pl][2]]
+                
+                # to make sure the BMA error is included if needed
+                tmplist = [L]
+                tmplist.extend(temp_list[pl][1:datalen])
+                
+                clean_spec[temp_list[pl][-1]] = tmplist
 
         overlaps.reverse()
 
