@@ -24,7 +24,7 @@ echo "Assuming lattice name in ../this_lattice.py unless modified in ./dataset"
 echo "Assuming interacting spectrum from scatdevel in FV_spec"
 
 
-print_xpath="/Users/felipeortg/Documents/scattering/install/adat/bin/print_xpath"
+print_xpath="/Users/felortga/Documents/hadspec_soft/scattering_devel/install/adat/bin/print_xpath"
 
 if [ ! -f fit_finite_volume_spectrum.ini.xml ]; then
     echo "Run in folder with fit_finite_volume_spectrum.ini.xml"

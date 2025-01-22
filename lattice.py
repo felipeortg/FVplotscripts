@@ -3,7 +3,7 @@
 # @Date    : 2021-09-2 12:04:18
 # @Author  : Felipe G. Ortega-Gama (felipeortegagama@gmail.com)
 
-drive_loc = '/Users/felipeortg/Google Drive/My Drive/'
+drive_loc = '/Users/felortga/Google Drive/My Drive/'
 
 LatticeLength = None
 chi = None
@@ -324,6 +324,54 @@ def init_lattice_props(lattname):
 
         free_file_sca = drive_loc + 'Documents/JLab/time_like_form_factor/self notes/free_levels/a840/free_levels_scattering_devel_mod_24.txt'
 
+
+    elif lattname == '24_a840_IG_2p':
+
+        # TABLE of 2008.06432 and references therein
+        mpion =  0.06906 # 1203.6041
+        
+        LatticeLength = int(lattname[:2])
+
+        chi = 3.444 # 1203.6041
+        nus = 4.3 / 3.4
+
+        mesons = {
+            'pion_proj0' : {'mass' : mpion, 'name' : r'\pi{}'},
+            'pi' : {'mass' : mpion, 'name' : r'\pi{}'}}
+
+        masses = dict()
+        for key in mesons: masses[key] = mesons[key]['mass']
+
+        names = dict()
+        for key in mesons: names[key] = mesons[key]['name']
+
+        colors = {
+            'pion_proj0xxpion_proj0' : 'blue',
+            'pixxpi' : 'blue',}
+
+        thresholdsp = ['pixxpi']
+        thresholdsm = thresholdsp
+        thresholdsmp = thresholdsp
+
+        ls_types = ['solid', 'dotted', 'dashdot', (0, (3, 1, 1, 1, 1, 1))]
+        
+        extrathresholdsm = [[4*mpion, ls_types[2], 'green', r'$\pi\pi \pi\pi$' ]]
+        extrathresholdsp = extrathresholdsm
+        extrathresholdsmp = extrathresholdsm
+        linestyles_types = ['solid', 'dotted', 'dashdot', (0, (3, 1, 1, 1, 1, 1))]
+
+        Lrange = [LatticeLength-4,LatticeLength+4]
+
+        energyrangem = [0.125,0.31]
+        energyrangep = [0.125,0.31]
+        energyrangemp = [0.125,0.31]
+
+
+        errorbarwidth = 0.8
+
+        free_file_red = None
+        free_file_sca = drive_loc + 'Documents/tmp_JLab/pipi_I2_scat/free_levels/free_levels_scattering_devel_mod.txt'
+
     # Parameters of the L=24 a_850 lattice
     elif lattname == '24_a850_IG_1p':
 
@@ -494,6 +542,7 @@ def init_lattice_props(lattname):
     24_a856_IG_1o2
     LL_a840_IG_1p
     16_20_24_a840_IG_1p
+    24_a840_IG_2p
     24_a850_IG_1p
     LL_a860_IG_1p
     24_32_a860_IG_1p

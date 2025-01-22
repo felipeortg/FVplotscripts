@@ -50,7 +50,7 @@ def get_df(index, names):
     
     file = io.StringIO(out.decode('UTF-8'))
     
-    return pd.read_csv(file, delim_whitespace=True, names=names)
+    return pd.read_csv(file, sep=r'\s+', names=names)
     
 
 datalen = int(shell.run(GREP + " '#e' " + axfile + " | wc -l", shell=True, stdout=shell.PIPE).stdout)
@@ -129,7 +129,7 @@ if mode == 'Jackfitter':
     info0 = label.split(sep='"')
     #print(info0)
 
-    info1 = info0[1].split(sep='\gx\sp2\ep/N\sbdof\eb')
+    info1 = info0[1].split(sep=r'\gx\sp2\ep/N\sbdof\eb')
     info2 = info1[1].split(';')
     chiinfo = info2[0]
     if len(info2) > 1:
@@ -154,7 +154,7 @@ elif mode == 'eigen':
                 linewonl = line.rstrip('\n')
 
                 if chiinfo == "":
-                    chiinfo = linewonl.split(sep='\gx\sp2\ep/N\sbdof\eb')[1][:-2]
+                    chiinfo = linewonl.split(sep=r'\gx\sp2\ep/N\sbdof\eb')[1][:-2]
                     fit_info.append(r'$\chi^2/\mathrm{dof}' + chiinfo + '$',)
                 else:
                     # fit_info.append(r'$'+ linewonl.split('"')[1].replace('\\+-', '\\pm') + r'$')
