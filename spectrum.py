@@ -211,7 +211,7 @@ def read_reconfit_file(filename, noise = .1):
     Read a spectrum file calculated via reconfit
     Return:
     irrep: string with irrep name
-    spectrum: list with [Ecm, Ecm_err]
+    spectrum: list with [Ecm, Ecm_err] or [Ecm, Ecm_err, Ecm_BMA_err]
     t0_str: string of the form t0 = #
     """
 
@@ -259,7 +259,7 @@ def read_reconfit_file(filename, noise = .1):
                     if len(elems) > 6:
                         # remove trailing \n as it is last element in line...
                         BMAunc = elems[-1].rstrip()
-                        spectrum.append([float(mass),float(unc), float(BMAunc)])
+                        spectrum.append([float(mass),float(unc), float(mass), float(BMAunc)])
 
                     else:
                         spectrum.append([float(mass),float(unc)])
@@ -270,24 +270,25 @@ def read_reconfit_file(filename, noise = .1):
 def read_twopt_file(filename, noise = .1):
     """ Read log file from twopt scattering
     Return:
-    spectrum: list with [Ecm, Ecm_err, (Ecm_BMA, Ecm_err_BMA)]
+    irrep: string with irrep name
+    spectrum: list with [Ecm_best, Ecm_best_err, Ecm_BMA, Ecm_BMA_err]
     t0_str: string of the form t0 = #
     """
 
     spectrum = []
-    spectrumBMA = []
-
+    spectrumtowrite = []
     with open(filename, 'r') as f:
         # Fill this list with all our levels
 
         states = False
+        # print('st', 'bma_mass', 'ens_err', 'bma_err')
         for nn, line in enumerate(f):
 
             # Irrep given in the first line
             if nn == 0:
                 irrep = line[:-2] # drop the new line and the G-parity
             if nn == 1:
-                linetmp = line.split('t0 = ')[1]
+                linetmp = line.rstrip().split('t0 = ')[1]
                 t0str = 't0 = ' + linetmp.split(" ")[0]
             # begin reading after state
             if line[:5] == '-----':
@@ -312,18 +313,100 @@ def read_twopt_file(filename, noise = .1):
                 if float(unc)/float(mass) > noise: #ignore noise results
                     print("###########\n WARNING: Noisy level ignored")
                     print(line)
+                    continue
+
+                if len(elems) > 5:
+                    tmp = elems[5].split(" +/- ")
+                    massBMA = tmp[0].split("[")[1]
+                    uncBMA = tmp[1].split("(")[0]
+                    uncens = tmp[1].split("(")[1].split("ens")[0]
+
+                    # print(nn-13 , massBMA, uncens, uncBMA)
+                    spectrumtowrite.append([float(massBMA), float(uncens), float(uncBMA)])
+                
+                    spectrum.append([float(mass), float(unc), float(massBMA), float(uncBMA)])
+
+                # in case it does not have BMA
                 else:
-                    if len(elems) > 5:
-                        tmp = elems[5].split(" +/- ")
-                        massBMA = tmp[0].split("[")[1]
-                        uncBMA = tmp[1].split("(")[0]
-                        spectrumBMA.append([float(massBMA),float(uncBMA)])
-                    
+                    # print(nn-2, mass, unc)
+
                     spectrum.append([float(mass),float(unc)])
 
 
-    return spectrum, spectrumBMA, t0str
+    with open('bma.csv', 'w') as f:
+        f.write('st bma_mass ens_err bma_err\n')
+        for nn, lev in enumerate(spectrumtowrite):
+            f.write(f"{nn} {lev[0]} {lev[1]} {lev[2]}\n")
 
+
+    return irrep, spectrum, t0str
+
+
+
+###
+# def read_twopt_file(filename, noise = .1):
+#     """ Read file created from grep -h '^{t0:s%2}' out/fit_logs/m_ord*
+#     from twopt scattering
+#     It assumes the irrep and t0 are written in the first two lines
+#     Return:
+#     irrep: string with irrep name
+#     spectrum: list with [Ecm_best, Ecm_best_err, Ecm_BMA, Ecm_BMA_err]
+#     t0_str: string of the form t0 = #
+#     """
+
+#     spectrum = []
+
+#     with open(filename, 'r') as f:
+#         # Fill this list with all our levels
+
+#         states = False
+#         print('st', 'mass', 'ens_err', 'bma_err')
+#         for nn, line in enumerate(f):
+
+#             # Irrep given in the first line
+#             if nn == 0:
+#                 irrep = line[:-2] # drop the new line and the G-parity
+#             elif nn == 1:
+#                 t0str = line.rstrip()
+#             else:
+#                 states = True
+
+#             if states:
+#                 # end reading at empty line
+#                 if line == '\n':
+#                     states = False
+#                     break
+
+#                 elems = line.split('| ')
+
+#                 mass, unc = elems[2].split(' +/- ')
+
+#                 if float(mass) == 0:
+#                     print("###########\n WARNING: Level has zero mass")
+#                     print(elems)
+#                     continue
+
+#                 if float(unc)/float(mass) > noise: #ignore noise results
+#                     print("###########\n WARNING: Noisy level ignored")
+#                     print(line)
+#                 else:
+#                     if len(elems) > 6:
+#                         tmp = elems[6].split(" ")
+
+#                         massBMA = tmp[2]
+#                         uncBMA = tmp[4]
+#                         uncens = tmp[5][1:]
+                        
+#                         print(nn-2,massBMA, uncens, uncBMA)
+                        
+#                         spectrum.append([float(mass), float(unc), float(massBMA), float(uncBMA)])
+
+#                     # in case it does not have ecm err
+#                     else:
+#                         spectrum.append([float(mass),float(unc)])
+
+
+#     return irrep, spectrum, t0str
 
 def read_redstar_file(filename):
     """ Read a spectrum file generated by redstar """
@@ -399,11 +482,12 @@ def read_free_spectrum_scatdevel(filename):
                 continue
             
             if tmp_ene == splitted[0]:
-                if len(splitted) < 3 or splitted[-1] != 'embedding':
-                    print(splitted)
+                emb = int(splitted[-1][-1])
+                if (len(splitted) < 3 and emb == 1) or (len(splitted) > 2 and splitted[-1] != 'embedding'):
+                    # print(splitted)
                     print('WARNING: There is a degeneracy in Irrep: '+ target 
                     + '\n with particles:' + print_twomeson_dict(particles)
-                     + ' and particles ' + splitted[1])
+                     + ' and particles ' + print_twomeson_dict(split_scat_devel_key(splitted[1])))
 
             tmp_ene = splitted[0]
 
@@ -481,9 +565,9 @@ def clean_calc_spectrum(dirty_spec, irrep, erange, chi, Lsize, Lwidth):
     # add support for BMAerror
     BMAmode = False
     datlen = 3
-    if len(dirty_spec[0]) == 3:
+    if len(dirty_spec[0]) != 2:
         BMAmode = True
-        datalen = 4
+        datalen = len(dirty_spec[0]) + 1
 
     irreP = label2vec(irrep[:3])
 
@@ -494,14 +578,14 @@ def clean_calc_spectrum(dirty_spec, irrep, erange, chi, Lsize, Lwidth):
         
         # propagate BMA uncertainty
         if BMAmode:   
-            BMAunc = ecm_prop_unc([level[0], level[-1]], irreP, Lsize*chi)[-1]
+            BMAmass, BMAunc = ecm_prop_unc([level[-2], level[-1]], irreP, Lsize*chi)
 
         if mass + unc > erange[0] and mass - unc < erange[1]: #leave only levels in the energy ranges
             
             if not BMAmode:
                 temp_list.append([Lsize, mass, unc, place])
             else:
-                temp_list.append([Lsize, mass, unc, BMAunc, place])
+                temp_list.append([Lsize, mass, unc, BMAmass, BMAunc, place])
 
             place += 1
 
