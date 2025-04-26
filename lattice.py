@@ -362,15 +362,15 @@ def init_lattice_props(lattname):
 
         Lrange = [LatticeLength-4,LatticeLength+4]
 
-        energyrangem = [0.125,0.31]
-        energyrangep = [0.125,0.31]
-        energyrangemp = [0.125,0.31]
+        energyrangem = [0.125,0.35]
+        energyrangep = [0.125,0.35]
+        energyrangemp = [0.125,0.35]
 
 
         errorbarwidth = 0.8
 
         free_file_red = None
-        free_file_sca = drive_loc + 'Documents/tmp_JLab/pipi_I2_scat/free_levels/free_levels_scattering_devel_mod.txt'
+        free_file_sca = drive_loc + 'Documents/tmp_JLab/pipi_I2_scat/free_levels/free_levels_scattering_devel.txt'
 
     # Parameters of the L=24 a_850 lattice
     elif lattname == '24_a850_IG_1p':

@@ -661,7 +661,7 @@ def do_fit_priors(model, xd, yd, invcov, bayesian_mean, bayesian_var, **kwargs):
     """
     Do a fit over a set of data
     """
-    lsq = LeastSquares_bayesian_priors(model, xd, yd, invcov, bayesian_mean, bayesian_var,)
+    lsq = LeastSquares_bayesian_priors(model, xd, yd, invcov, bayesian_mean, bayesian_var)
     m = Minuit(lsq, **kwargs)
     m.migrad()
     m.hesse()
@@ -2201,6 +2201,22 @@ def plot_ensemble_mean_err(ax, xd, ensem, nn=0, **kwargs):
     return plot_data(ax, xd, yd, yerr, nn, **kwargs)
 
 def plot_eff_mass(ax, correl, **kwargs):
+    """
+    A helper function to plot the eff mass of correlator
+
+    Parameters
+    ----------
+    ax : Axes
+        The axes to draw to
+
+    correl : correlator
+       The y data
+
+    Returns
+    -------
+    out : artist
+        artist added to ax
+    """
 
     effmass = eff_mass(correl)
 
