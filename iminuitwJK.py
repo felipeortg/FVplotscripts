@@ -956,6 +956,67 @@ def fit_data(xdata, ydata, fun, verb = 0, limits=[None], inversion=None, **kwarg
     return fit_data_input_cov(xdata, (ydata, m_ydata), fun, inv_cov, fitfun=fitfun, verb=verb, **kwargs)
 
 
+def fit_data_boot(xdata, ydata, fun, inversion=None, **kwargs):
+    """
+    Perform a bootstrap fit to ydata=fun(xdata) using the ydata ensemble to calculate covariance
+    provide the initial value of the fit parameters as kwargs
+    
+    * Limits can be provided in a list, the list needs to be the same length as the variables
+        - None for no limit
+        - use 1 value to fix variable
+        - [low_lim, up_lim], one of them can be None if no up/low lim
+            if low_lim=up_lim the variable will also be fixed
+
+    *Inversion for covariance:
+        - None for normal inversion
+        - "diag" to ignore off diagonal covariance elements in inversion
+        - dict(num_reset) to reset a certain number of smallest *covariance* eigvals 
+        - dict(rat_reset) to reset *correlation* eigvals smaller than rat_reset * (bigger eigval)
+    """
+
+    m_ydata = meanense(ydata)
+
+    cov_ydata = np.cov(ydata, rowvar=False, ddof=1)
+
+    # check for how to invert covariance
+    if inversion == "diag":
+        cov_ydata = np.diag(np.diag(cov_ydata))
+        inv_cov_ydata = invert_cov(cov_ydata)
+
+    else:
+        inv_cov_ydata = invert_cov(cov_ydata, inversion)
+
+    
+    mean_fit = do_fit(fun, xdata, m_ydata, inv_cov_ydata, **kwargs)
+
+    priors = mean_fit.values
+    priordict = {}
+    for nn, ele in enumerate(mean_fit.parameters):
+        priordict[ele] = priors[nn] 
+    
+    chi2 = []
+    params = []
+
+    for nn, b_y in enumerate(ydata):
+        m = do_fit(fun, xdata, b_y, inv_cov_ydata, **priordict)
+
+        if m.valid:
+            chi2.append(m.fval)
+            params.append(m.values)
+        else:
+            failed += 1
+            print("The fit {0} did not converge".format(nn))
+            print(b_y)
+            print(m)
+            print("-------")
+
+
+    mean_chi2 = meanense(chi2)
+
+
+    return mean_fit, params, mean_chi2
+
+
 def order_number(number, p = 1):
     """ Get the order of a number given p significant digits 
     If p = 1 
@@ -1543,6 +1604,46 @@ def summarize_result(mean_fit, params_ense, mean_chi2, xdata, pretty_vars = [], 
     mean_pars = meanense(params_ense)
     cov_pars = covmatense(params_ense,mean_pars)
     cor_pars = cormatense(params_ense,mean_pars)
+
+    if svd_reset == None or svd_reset["num_reset"]==0:
+        fit_info = [f"$\\chi^2 / n_\\mathrm{{dof}} = {mean_chi2:.1f} / ({len(xdata)} - {mean_fit.nfit}) = {mean_chi2/(len(xdata) - mean_fit.nfit):.2f}$"]
+    else:
+        rmv_dof = svd_reset["num_reset"]
+        fit_info = [f"$\\chi^2 / n_\\mathrm{{dof}} = {mean_chi2:.1f} / ([{len(xdata)} - {rmv_dof}] - {mean_fit.nfit}) = {mean_chi2/(len(xdata) - rmv_dof - mean_fit.nfit):.2f}$"]
+        
+
+    names = mean_fit.parameters
+
+    if len(mean_pars) == len(pretty_vars):
+        names = pretty_vars
+
+    nn = 0
+    for p, v, e in zip(names, mean_pars, np.diag(cov_pars)**(1/2)):
+        if mean_fit.fixed[nn]:
+            e = 0
+            p = p + "\\mathrm{\\ [fixed]}"
+        
+        
+        fit_info.append(add_fit_info_ve(p, v, e))
+        
+        nn +=1
+
+    return [mean_pars, np.diag(cov_pars)**(1/2)], cor_pars, fit_info
+
+def boot_summarize_result(fit_data_result, pretty_vars = [],  svd_reset=None):
+    mean_fit = fit_data_result[0]
+    params = fit_data_result[1]
+    mean_chi2 = fit_data_result[2]
+    xdata = range(int(fit_data_result[0].ndof + fit_data_result[0].nfit))
+
+
+    mean_pars = meanense(params)
+    cov_pars = np.cov(params, rowvar=False, ddof=1)
+    
+    if len(mean_pars) == 1:
+        cov_pars = [[cov_pars]]
+    
+    cor_pars = cov2cor(cov_pars)
 
     if svd_reset == None or svd_reset["num_reset"]==0:
         fit_info = [f"$\\chi^2 / n_\\mathrm{{dof}} = {mean_chi2:.1f} / ({len(xdata)} - {mean_fit.nfit}) = {mean_chi2/(len(xdata) - mean_fit.nfit):.2f}$"]
