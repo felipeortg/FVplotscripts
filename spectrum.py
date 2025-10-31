@@ -56,6 +56,14 @@ def free_part_en(m1,m2,L,k1,k2,P):
 
     return np.sqrt( (p1en + p2en)**2 - P2 * (2*np.pi/L)**2 )
 
+
+def dispersion_relation(m, L, k):
+    """ Get the energy for m, L, momenta"""
+    karr = np.array(k)
+    ksq = np.sum(karr**2)
+    return np.sqrt(m**2 + ksq * (2*np.pi/L)**2)
+
+
 def ecm_prop_unc(energyunc, P, Lchi):
     """ Propagate the uncertainty in lattice energy to the CM frame"""
     energy, unc = energyunc

@@ -1365,6 +1365,10 @@ def add_fit_info_ve(p, value, error):
     ve_dict['name'] = p
     return f"${p} = " + ve_dict2string(ve_dict) + "$"
 
+def value_error_rounding_str(value, error):
+    ve_dict = value_error_rounding(value, error)
+    return ve_dict2string(ve_dict)
+
 def add_fit_info_ve_old(p, value, error):
     """
     Get a formatted string of the form p = value(error) or p = value +/- error
@@ -1657,6 +1661,29 @@ def plot_line_model(ax, lab, nn, xd, model, params_ense, factor=dummy_factor):
 
     mean_pred = meanense(predup)
     error_pred = errormean(predup, mean_pred)
+
+
+    out2 = ax.fill_between(xarr, mean_pred-error_pred, mean_pred+error_pred, alpha=0.5, facecolor = 'C'+ str(nn))
+    out1 = ax.plot(xarr, mean_pred, c = 'C'+str(nn),label=lab, lw=1, zorder=1)
+
+    return out1, out2
+
+def plot_line_model_boot(ax, lab, nn, xd, model, params_ense, factor=dummy_factor):
+    """
+    Plot the value of a model with bootstrap resampling
+    input: axes, label, nn: color number, xd: min and max to get range, model function, params ensemble, [factor in xspace]
+
+    """
+
+    xarr = np.linspace(min(xd), max(xd), num=100)
+
+    pred = []
+    for paramset in params_ense:
+        pred.append([model(xval, *paramset) * factor(xval) for xval in xarr])
+
+
+    mean_pred = meanense(pred)
+    error_pred = np.std(pred, axis=0, ddof=1)
 
 
     out2 = ax.fill_between(xarr, mean_pred-error_pred, mean_pred+error_pred, alpha=0.5, facecolor = 'C'+ str(nn))
