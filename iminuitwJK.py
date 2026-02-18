@@ -359,11 +359,10 @@ def fit_data(xdata, ydata, fun, verb = 0, limits=[None], inversion=None, **kwarg
         else:
             fitfun = dict(fitfun="do_fit_limits",limits=lim_fix['lims'])
 
-    if num_fixed:
+    elif num_fixed:
         fitfun = dict(fitfun="do_fit_fixed",fixed=lim_fix['fixes'])        
     else:
         fitfun = dict(fitfun="do_fit")
-
 
     # the average is used for the initial fit, and to compute the covariance
     m_ydata = meanense(ydata)
