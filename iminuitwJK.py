@@ -21,9 +21,74 @@ if version.parse(imversion) < version.parse("2.6"):
 
 from jack_utility import *
 
+def invert_cov(cov_ydata, svd_reset=None):
+    """
+    svd_reset can be, either use stores both to use later:
+    * num_reset: keep the n largest singular values
+    * rat_reset: keep (correlation) singular values above a ratio wrt the largest value
+    """
+
+    if svd_reset == None:
+    
+        # Invert the covariance matrix
+        try:
+            inv_cov_ydata=np.linalg.inv(cov_ydata)
+        except:
+            print("Eigenvalues of the covariance matrix should be non-zero, and by def positive")
+            print(np.linalg.eigvalsh(cov_ydata))
+            raise Exception('Inversion of covariance data failed, maybe try an svd reset with inversion keyword')
+
+    else:
+        ydata_error_inv = np.diag(1/np.sqrt(np.diag(cov_ydata)))
+
+        cor_ydata = cov2cor(cov_ydata)
+        u, s, vh = np.linalg.svd(cor_ydata, hermitian = True)
+
+        s_inv_reset = np.zeros(len(s))
+
+        if "num_reset" in svd_reset:
+
+            kept_svds = len(s) - svd_reset["num_reset"]
+ 
+            # get the ratio reset in case we need later
+            if kept_svds == len(s):
+                svd_reset["rat_reset"] = 0
+            else:
+                svd_reset["rat_reset"] = s[kept_svds]/s[0]
+
+            if kept_svds < 1:
+                raise Exception("Cannot remove {0} singular values, the dof are only {1}".format(svd_reset["num_reset"], len(s)))
+
+            s_inv_reset[:kept_svds] = 1/s[:kept_svds]
+
+        elif "rat_reset" in svd_reset:
+            s_inv_reset[0] = 1./s[0]
+            kept_svds = 1
+            for nn, sing_val in enumerate(s[1:]):
+                if sing_val/s[0] > svd_reset["rat_reset"]:
+                    kept_svds += 1
+                    s_inv_reset[nn+1] = 1/s[1+nn]
+                else:
+                    break
+
+            svd_reset["num_reset"] = len(s) - kept_svds
+
+        else:
+            raise ValueError(
+            """
+            svd_reset only has:
+            * num_reset: keep the n largest singular values
+            * rat_reset: keep (correlation) singular values above a ratio wrt the largest value
+            """)
+
+        inv_cov_ydata = ydata_error_inv @ u @ np.diag(s_inv_reset) @ vh @ ydata_error_inv
+        print(svd_reset)
+
+    return inv_cov_ydata
+
 ###################
 ###################
-# Fit functions
+# Fit LeastSquares and fit_data functions
 ###################
 ###################
 
@@ -50,49 +115,6 @@ class LeastSquares:
     def ndata(self):
         return len(self.y)
 
-class LeastSquares_bayesian_priors:
-    """
-    Generic least-squares cost function with error.
-    """
-
-    errordef = Minuit.LEAST_SQUARES # for Minuit to compute errors correctly
-
-    def __init__(self, model, x, y, invcov, priors_mean, priors_var):
-        self.model = model  # model predicts y for given x
-        # self.func_code = make_func_code(describe(model)[1:])
-        self._parameters = {k: None for k in describe(model)[1:]} # new version, limits can be given here ...
-        self.x = np.asarray(x)
-        self.y = np.asarray(y)
-        self.invcov = np.asarray(invcov)
-
-        if len(priors_mean) != len(priors_var):
-            raise Exception("Mean and variance of priors should be same length")
-
-        self.pars_bay_prior = np.asarray(priors_mean)
-        self.pars_bay_prior_var = np.asarray(priors_var)
-
-    def __call__(self, *par):  # we accept a variable number of model parameters
-        ym = self.model(self.x, *par)
-
-        priors = np.array(self.pars_bay_prior - [*par])**2/self.pars_bay_prior_var
-
-        return (self.y - ym) @ self.invcov @ (self.y - ym) + np.sum(priors)
-
-    @property
-    def ndata(self):
-        return len(self.y)
-
-def do_fit_priors(model, xd, yd, invcov, bayesian_mean, bayesian_var, **kwargs):
-    """
-    Do a fit over a set of data
-    """
-    lsq = LeastSquares_bayesian_priors(model, xd, yd, invcov, bayesian_mean, bayesian_var)
-    m = Minuit(lsq, **kwargs)
-    m.migrad()
-    m.hesse()
-    # m.minos()
-
-    return m
 
 def do_fit(model, xd, yd, invcov, **kwargs):
     """
@@ -231,6 +253,9 @@ def fit_data_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, fitfun=dict(fitfu
             chi2.append(m.fval)
             paramsjk.append(m.values)
         else:
+            chi2.append(m.fval)
+            paramsjk.append(m.values)
+
             failed += 1
             print("The fit {0} did not converge".format(nn))
             print(jk_y)
@@ -249,70 +274,6 @@ def fit_data_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, fitfun=dict(fitfu
 
     return mean_fit, params_up, mean_chi2
 
-def invert_cov(cov_ydata, svd_reset=None):
-    """
-    svd_reset can be, either use stores both to use later:
-    * num_reset: keep the n largest singular values
-    * rat_reset: keep (correlation) singular values above a ratio wrt the largest value
-    """
-
-    if svd_reset == None:
-    
-        # Invert the covariance matrix
-        try:
-            inv_cov_ydata=np.linalg.inv(cov_ydata)
-        except:
-            print("Eigenvalues of the covariance matrix should be non-zero, and by def positive")
-            print(np.linalg.eigvalsh(cov_ydata))
-            raise Exception('Inversion of covariance data failed, maybe try an svd reset with inversion keyword')
-
-    else:
-        ydata_error_inv = np.diag(1/np.sqrt(np.diag(cov_ydata)))
-
-        cor_ydata = cov2cor(cov_ydata)
-        u, s, vh = np.linalg.svd(cor_ydata, hermitian = True)
-
-        s_inv_reset = np.zeros(len(s))
-
-        if "num_reset" in svd_reset:
-
-            kept_svds = len(s) - svd_reset["num_reset"]
- 
-            # get the ratio reset in case we need later
-            if kept_svds == len(s):
-                svd_reset["rat_reset"] = 0
-            else:
-                svd_reset["rat_reset"] = s[kept_svds]/s[0]
-
-            if kept_svds < 1:
-                raise Exception("Cannot remove {0} singular values, the dof are only {1}".format(svd_reset["num_reset"], len(s)))
-
-            s_inv_reset[:kept_svds] = 1/s[:kept_svds]
-
-        elif "rat_reset" in svd_reset:
-            s_inv_reset[0] = 1./s[0]
-            kept_svds = 1
-            for nn, sing_val in enumerate(s[1:]):
-                if sing_val/s[0] > svd_reset["rat_reset"]:
-                    kept_svds += 1
-                    s_inv_reset[nn+1] = 1/s[1+nn]
-                else:
-                    break
-
-            svd_reset["num_reset"] = len(s) - kept_svds
-
-        else:
-            raise ValueError(
-            """
-            svd_reset only has:
-            * num_reset: keep the n largest singular values
-            * rat_reset: keep (correlation) singular values above a ratio wrt the largest value
-            """)
-
-        inv_cov_ydata = ydata_error_inv @ u @ np.diag(s_inv_reset) @ vh @ ydata_error_inv
-        print(svd_reset)
-
-    return inv_cov_ydata
 
 def fit_data(xdata, ydata, fun, verb = 0, limits=[None], inversion=None, **kwargs):
     """
@@ -440,6 +401,268 @@ def fit_data_boot(xdata, ydata, fun, inversion=None, **kwargs):
 
 
     return mean_fit, params, mean_chi2
+
+###################
+###################
+# Fit functions priors
+###################
+###################
+
+class LeastSquares_bayesian_priors:
+    """
+    Generic least-squares cost function with error.
+    """
+
+    errordef = Minuit.LEAST_SQUARES # for Minuit to compute errors correctly
+
+    def __init__(self, model, x, y, invcov, priors_mean, priors_var):
+        self.model = model  # model predicts y for given x
+        # self.func_code = make_func_code(describe(model)[1:])
+        self._parameters = {k: None for k in describe(model)[1:]} # new version, limits can be given here ...
+        self.x = np.asarray(x)
+        self.y = np.asarray(y)
+        self.invcov = np.asarray(invcov)
+
+        if len(priors_mean) != len(priors_var):
+            raise Exception("Mean and variance of priors should be same length")
+
+        self.pars_bay_prior = np.asarray(priors_mean)
+        self.pars_bay_prior_var = np.asarray(priors_var)
+
+    def __call__(self, *par):  # we accept a variable number of model parameters
+        ym = self.model(self.x, *par)
+
+        priors = np.array(self.pars_bay_prior - [*par])**2/self.pars_bay_prior_var
+
+        return (self.y - ym) @ self.invcov @ (self.y - ym) + np.sum(priors)
+
+    @property
+    def ndata(self):
+        return len(self.y)
+
+def do_fit_priors(model, xd, yd, invcov, bayesian_mean, bayesian_var, **kwargs):
+    """
+    Do a fit over a set of data
+    """
+    lsq = LeastSquares_bayesian_priors(model, xd, yd, invcov, bayesian_mean, bayesian_var)
+    m = Minuit(lsq, **kwargs)
+    m.migrad()
+    m.hesse()
+    # m.minos()
+
+    return m
+
+def do_fit_priors_limits(model, xd, yd, invcov, bayesian_mean, bayesian_var, limits, **kwargs):
+    """
+    Do a fit over a set of data, place limits on the parameters
+    """
+    lsq = LeastSquares_bayesian_priors(model, xd, yd, invcov, bayesian_mean, bayesian_var)
+    m = Minuit(lsq, **kwargs)
+    m.limits = limits
+    m.migrad()
+    m.hesse()
+    # m.minos()
+
+    return m
+
+def do_fit_priors_limits_fixed(model, xd, yd, invcov, bayesian_mean, bayesian_var, limits, fixed, **kwargs):
+    """
+    Do a fit over a set of data, place limits on the parameters or fix some of them
+    """
+    lsq = LeastSquares_bayesian_priors(model, xd, yd, invcov, bayesian_mean, bayesian_var)
+    m = Minuit(lsq, **kwargs)
+    m.limits = limits
+    m.fixed = fixed
+    m.migrad()
+    m.hesse()
+    # m.minos()
+
+    return m
+
+def do_fit_priors_fixed(model, xd, yd, invcov, bayesian_mean, bayesian_var, fixed, **kwargs):
+    """
+    Do a fit over a set of data, place limits on the parameters or fix some of them
+    """
+    lsq = LeastSquares_bayesian_priors(model, xd, yd, invcov, bayesian_mean, bayesian_var)
+    m = Minuit(lsq, **kwargs)
+    m.fixed = fixed
+    m.migrad()
+    m.hesse()
+    # m.minos()
+
+    return m
+
+def fit_data_priors_input_cov(xdata, ydata_and_m, fun, inv_cov_ydata, bayesian_mean, bayesian_var, fitfun=dict(fitfun="do_fit"), verb = 0, **kwargs):
+    """
+    Perform a JK fit to ydata=fun(xdata)
+    covariance matrix is provided as input
+    provide the initial value of the fit parameters as kwargs
+    This function should be used internally
+    """
+
+    ydata, m_ydata = ydata_and_m
+
+    if verb > 1:
+        print("Mean of data, and size of cov matrix")
+        print(m_ydata)
+        print(np.shape(inv_cov_ydata))
+        print("-------")
+
+    if verb > 2:
+        print("Cov matrix")
+        mprint(np.linalg.inv(inv_cov_ydata),1e9)
+        print("-------")
+        print(np.linalg.svd(inv_cov_ydata,compute_uv=False))
+        print("-------")
+        print(1/np.linalg.svd((covmatense(ydata, m_ydata)),compute_uv=False))
+
+    
+    if verb > 0:
+        print("Correlation matrix of the data")
+        mprint(cormatense(ydata, m_ydata))
+
+        print("-------")     
+        print("Correlation matrix used for the fit")
+        mprint(cov2cor(np.linalg.inv(inv_cov_ydata)))
+        print("-------")
+
+
+    # Do fit to mean to get priors
+    # Two types of fit so far, can extend it arbitrarily
+    if fitfun["fitfun"] == "do_fit" :
+        mean_fit = do_fit_priors(fun, xdata, m_ydata, inv_cov_ydata, bayesian_mean, bayesian_var, **kwargs)
+    elif fitfun["fitfun"] == "do_fit_limits":
+        mean_fit = do_fit_priors_limits(fun, xdata, m_ydata, inv_cov_ydata, bayesian_mean, bayesian_var, fitfun["limits"], **kwargs)
+    elif fitfun["fitfun"] == "do_fit_fixed":
+        mean_fit = do_fit_priors_fixed(fun, xdata, m_ydata, inv_cov_ydata, bayesian_mean, bayesian_var, fitfun["fixed"], **kwargs)
+    elif fitfun["fitfun"] == "do_fit_limits_fixed":
+        mean_fit = do_fit_priors_limits_fixed(fun, xdata, m_ydata, inv_cov_ydata, bayesian_mean, bayesian_var, fitfun["limits"], fitfun["fixed"], **kwargs)
+    else:
+        raise ValueError("Fit unsupported, options are do_fit, do_fit_limits and do_fit_limits_fixed")
+
+
+    if not mean_fit.valid:
+        print(mean_fit)
+        raise Exception("The fit to the mean data was not valid")
+
+    if verb > 0:
+        print("Fit to the mean result:")
+        print(mean_fit)
+        print("-------")
+
+    priors = mean_fit.values
+    priordict = {}
+    for nn, ele in enumerate(mean_fit.parameters):
+        priordict[ele] = priors[nn]
+
+    # Do fit to each Jackknife sample
+    y_down = jackdown(ydata)
+
+    chi2 = []
+    paramsjk = []
+    failed = 0
+
+    for nn, jk_y in enumerate(y_down):
+        # already checked the types in the dictionary, no need to add "try:" here
+        if fitfun["fitfun"] == "do_fit" :
+            m = do_fit_priors(fun, xdata, jk_y, inv_cov_ydata, bayesian_mean, bayesian_var, **priordict)
+        elif fitfun["fitfun"] == "do_fit_limits":
+            m = do_fit_priors_limits(fun, xdata, jk_y, inv_cov_ydata, bayesian_mean, bayesian_var, fitfun["limits"], **priordict)
+        elif fitfun["fitfun"] == "do_fit_fixed":
+            m = do_fit_priors_fixed(fun, xdata, jk_y, inv_cov_ydata, bayesian_mean, bayesian_var, fitfun["fixed"], **priordict)
+        elif fitfun["fitfun"] == "do_fit_limits_fixed":
+            m = do_fit_priors_limits_fixed(fun, xdata, jk_y, inv_cov_ydata, bayesian_mean, bayesian_var, fitfun["limits"], fitfun["fixed"], **priordict)
+
+        if m.valid:
+            chi2.append(m.fval)
+            paramsjk.append(m.values)
+        else:
+            chi2.append(m.fval)
+            paramsjk.append(m.values)
+
+            failed += 1
+            print("The fit {0} did not converge".format(nn))
+            print(jk_y)
+            print(m)
+            print("-------")
+
+    siz = ydata.shape[0]
+    print("{0} out of {1} JK fits successful".format(siz-failed,siz))
+
+    params_up = jackup(paramsjk)
+
+    # the average is independent of whether or not the ensemble is scaled up or down
+    # chi2_up = jackup(chi2)
+    mean_chi2 = meanense(chi2)
+
+
+    return mean_fit, params_up, mean_chi2
+
+
+def fit_data_priors(xdata, ydata, bayesian_mean, bayesian_var, fun, verb = 0, limits=[None], inversion=None, **kwargs):
+    """
+    Perform a JK fit to ydata=fun(xdata) using the ydata ensemble to calculate covariance
+    provide the initial value of the fit parameters as kwargs
+    
+    * Limits can be provided in a list, the list needs to be the same length as the variables
+        - None for no limit
+        - use 1 value to fix variable
+        - [low_lim, up_lim], one of them can be None if no up/low lim
+            if low_lim=up_lim the variable will also be fixed
+
+    *Inversion for covariance:
+        - None for normal inversion
+        - "diag" to ignore off diagonal covariance elements in inversion
+        - dict(num_reset) to reset a certain number of smallest *covariance* eigvals 
+        - dict(rat_reset) to reset *correlation* eigvals smaller than rat_reset * (bigger eigval)
+    """
+    # print(xdata,ydata)
+
+    # check for limits and fixed
+    lim_fix = dict(lims = [], fixes = [])
+    num_lim = 0
+    num_fixed = 0
+    for limit in limits:
+        if limit == None:
+            lim_fix['lims'].append(limit)
+            lim_fix['fixes'].append(False)
+
+        elif len(limit) == 1 or limit[0] == limit[1]:
+            lim_fix['lims'].append(None)
+            lim_fix['fixes'].append(True)
+            num_fixed += 1
+            num_lim += 0
+
+        else:
+            lim_fix['lims'].append(limit)
+            lim_fix['fixes'].append(False)
+            num_lim +=1
+
+    if num_lim:
+        if num_fixed:
+            fitfun = dict(fitfun="do_fit_limits_fixed",limits=lim_fix['lims'],fixed=lim_fix['fixes'])
+        else:
+            fitfun = dict(fitfun="do_fit_limits",limits=lim_fix['lims'])
+
+    elif num_fixed:
+        fitfun = dict(fitfun="do_fit_fixed",fixed=lim_fix['fixes'])        
+    else:
+        fitfun = dict(fitfun="do_fit")
+
+    # the average is used for the initial fit, and to compute the covariance
+    m_ydata = meanense(ydata)
+
+    # check for how to invert covariance
+    if inversion == "diag":
+        cov_ydata = np.diag(np.diag(covmatense(ydata, m_ydata)))
+        inv_cov = invert_cov(cov_ydata)
+
+    else:
+        cov_ydata = covmatense(ydata, m_ydata)
+        inv_cov = invert_cov(cov_ydata, inversion)
+
+
+    return fit_data_priors_input_cov(xdata, (ydata, m_ydata), fun, inv_cov, bayesian_mean, bayesian_var, fitfun=fitfun, verb=verb, **kwargs)
 
 
 def order_number(number, p = 1):
@@ -1208,7 +1431,7 @@ mJK.plot_line_model(ax, 'fit', 1, xd, exp, fit_check_corr[1], lead_exp)
 
 ax.text(0.05,.05, "\n".join(sum_check[2]), transform=ax.transAxes,  bbox=dict(fc="w"))
 ax.text(0.05,.05, "\n".join(sum_check[2]), transform=ax.transAxes,  bbox=dict(alpha=0))
-ax.legend()
+ax.legend(loc="center left", bbox_to_anchor=(1,.5))
 
 """
 
