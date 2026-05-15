@@ -1382,6 +1382,107 @@ def remove_fixed_variables_cor(input_cor, input_names):
     return new_cor, new_names
 
 
+def generate_ax_file(xd, yd, fit, model, 
+    filename="plot.ax", mask=None, pretty_vars=[], factor=dummy_factor):
+    """
+    Generates an .ax file using a boolean mask to distinguish active vs inactive data.
+    
+    Parameters:
+    - xd: Array of x-values (time slices).
+    - yd: Ensemble/Jackknife data of shape (N_samples, len(xd)).
+    - fit: Result of fit_data, list [minuit_fit, params, chi2].
+    - model: The model function of fit.
+    - filename: Output .ax file path.
+    - mask: Boolean array of length len(xd) where True indicates active data.
+    - pretty_vars: list of strings to use for the latex variable names
+    - factor: Factor used in model evaluation.
+    """
+
+    # Default value of mask
+    if mask is None:
+        mask = [True]*len(xd)
+
+    mask_inactive = ~np.array(mask)
+
+    yd_fac = td_ensemble_op(factor , lambda x,y: x*y, xd, yd)
+    
+    # Active data (used in fit)
+    xdata = xd[mask]
+    ydata_me = np.transpose(calc(yd_fac[:, mask]))
+
+    # Inactive data (not used in fit)
+    x_inactive = xd[mask_inactive]
+    y_inactive_me = None
+    if len(x_inactive) > 0:
+        y_inactive_me = calc(yd_fac[:,mask_inactive])
+
+    # Setup Line Model Plots (the continuous curves)
+    # Typically, we plot the mean, and mean +/- error lines
+    params_ense = fit[1]
+    # Create a dense x-axis for smooth lines
+    if sum(mask) == len(xd):
+        x_smooth = np.linspace(min(xd)-0.5, max(xd)+0.5, 221)
+    else:
+        x_smooth = np.linspace(min(xd), max(xd), 221)
+    
+    # Get model ensemble to calculate bands
+    # get_line_model should return [mean, err] or similar based on your provided signature
+    # Assuming get_line_model returns the evaluated model across the ensemble
+    y_model_me = get_line_model(x_smooth, model, params_ense, factor=factor) # [mean, error]
+
+
+    summary = summarize_fit_result(fit, pretty_vars=pretty_vars)[-1]
+
+    with open(filename, 'w') as f:
+        # Header for axis limits (estimated from data)
+        f.write(f"#x {min(x_smooth)} {max(x_smooth)}\n")
+        f.write(f"#y {np.min(ydata_me[0])*0.95} {np.max(ydata_me[0])*1.05}\n\n")
+
+        # Write Model Lines (3 lines: Mean, Mean+Err, Mean-Err)
+        # ax_plot.py expects sets of lines (usually 3 or 9)
+        for shift in [0, 1, -1]:
+            f.write("#\n#e0\n#c0\n#m 2\n")
+            for i, x in enumerate(x_smooth):
+                val = y_model_me[0][i] + shift * y_model_me[1][i]
+                f.write(f"{x:.4f} {val:.6f}\n")
+            f.write("\n")
+
+        # Write Active Data
+        f.write(f"#active\n#\n#e\n#c \\sq\n#cs 0.5\n#m 1\n")
+        for i in range(len(xdata)):
+            f.write(f"{xdata[i]} {ydata_me[0][i]:.6f} {ydata_me[1][i]:.6f}\n")
+        f.write("\n")
+
+        # Write Inactive Data
+        f.write(f"#inactive\n#\n#e\n#c \\sq\n#cs 0.5\n#m 1\n")
+        if y_inactive_me is not None:
+            for i in range(len(x_inactive)):
+                f.write(f"{x_inactive[i]} {y_inactive_me[0][i]:.6f} {y_inactive_me[1][i]:.6f}\n")
+        else:
+            f.write(" , \n")
+        f.write("\n")
+
+        # Write Fit Summary (The parameters and Chi2)
+        # ax_plot.py looks for '#cs 1' and specific LaTeX markers
+        f.write("#\n#e0\n#c0\n#m 1\n#cs 1\n")
+        for i, line in enumerate(summary):
+            # Format Chi2 line specifically for ax_plot's regex
+            if i == 0:
+                parts = line.split('= ')
+                # Expects: " \gx\sp2\ep/N\sbdof\eb=VALUE / (DOF) = RESULT"
+                f.write(r'0 0 " \gx\sp2\ep/N\sbdof\eb=' + f"{parts[1]}= {parts[2][:-1]}\" \n")
+            else:
+                # Expects: "Param= Value \+- Error"
+                # Replacing standard +/- with \+- for the script's parser
+                clean_line = line.replace('+/-', r'\+-')
+                f.write(f"0 0 \"{clean_line}\" \n")
+
+    print(f"File {filename} created successfully.")
+
+# Example usage:
+# summary = mJK.summarize_fit_result(best_fit['fit'])
+# generate_ax_file('my_plot.ax', best_fit, Dts, C_Dt_wolexp, my_model, lead_exp, summary)
+
 """
 An idea for an image of the fit summary:
 fit_info = []

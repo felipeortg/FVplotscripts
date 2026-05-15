@@ -159,10 +159,15 @@ elif mode == 'eigen':
                 else:
                     # fit_info.append(r'$'+ linewonl.split('"')[1].replace('\\+-', '\\pm') + r'$')
                     p, ve = linewonl.split('"')[1].split('=')
-                    v, e = ve.split('\\+-')
-                    v=float(v)
-                    e=float(e)
-                    fit_info.append(mJK.add_fit_info_ve(p,v,e))
+                    v_e = ve.split('\\+-')
+
+                    #Support for personal plots where '\\+-' has been removed
+                    if len(v_e) == 1:
+                        fit_info.append(p+"="+v_e[0])
+                    else:
+                        v=float(v_e[0])
+                        e=float(v_e[1])
+                        fit_info.append(mJK.add_fit_info_ve(p,v,e))
 
 
 
