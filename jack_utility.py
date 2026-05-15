@@ -133,7 +133,7 @@ def prune_Jack_file(filename, pruned_cfgs, r_comp=0):
     if filename[-5:] == '.jack':
         newfile = filename[:-5] + '_pruned.jack'
     else:
-        newfile + '.pruned'
+        newfile = filename + '.pruned'
 
     cfgs, tl, dataarray = read_Jack_file(filename, r_comp)
 
