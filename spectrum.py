@@ -57,6 +57,26 @@ def free_part_en(m1,m2,L,k1,k2,P):
     return np.sqrt( (p1en + p2en)**2 - P2 * (2*np.pi/L)**2 )
 
 
+def free_part_en_3p(m1,m2,m3,L,k1,k2,k3,P):
+    """ Get the energy for m1, m2, L, momenta 1, 2, target"""
+    k1arr = np.array(k1)
+    k2arr = np.array(k2)
+    k3arr = np.array(k3)
+    Parr = np.array(P)
+
+    k1sq = np.sum(k1arr**2)
+    k2sq = np.sum(k2arr**2)
+    k3sq = np.sum(k3arr**2)
+    P2 = np.sum(Parr**2)
+
+
+    p1en = np.sqrt(m1**2 + k1sq * (2*np.pi/L)**2)
+    p2en = np.sqrt(m2**2 + k2sq * (2*np.pi/L)**2)
+    p3en = np.sqrt(m3**2 + k3sq * (2*np.pi/L)**2)
+
+    return np.sqrt( (p1en + p2en + p3en)**2 - P2 * (2*np.pi/L)**2 )
+
+
 def dispersion_relation(m, L, k):
     """ Get the energy for m, L, momenta"""
     karr = np.array(k)
@@ -93,6 +113,22 @@ def order_two_meson_list_at_xiL(twomesonlist, irreP, xiL, mesonmasses):
                                        label2vec(twomesons['k1']), label2vec(twomesons['k2']), irreP)
 
         energy_list.append([energy, twomesons])
+
+    energy_list.sort(key=lambda en_mes: en_mes[0])
+
+    sortedlist = [en_mes[1] for en_mes in energy_list]
+
+    return sortedlist
+
+def order_three_meson_list_at_xiL(threemesonlist, irreP, xiL, mesonmasses):
+    """Order the list in the dictionary """
+
+    energy_list = []
+    for threemesons in threemesonlist:
+        energy = free_part_en_3p(mesonmasses[threemesons['part1']], mesonmasses[threemesons['part2']], mesonmasses[threemesons['part3']],
+                                xiL,label2vec(threemesons['k1']), label2vec(threemesons['k2']), label2vec(threemesons['k3']), irreP)
+
+        energy_list.append([energy, threemesons])
 
     energy_list.sort(key=lambda en_mes: en_mes[0])
 
@@ -158,6 +194,89 @@ def split_redstar_key(string):
             # No surprise here
             partmom = mom_in_name
         else:
+            raise Exception("Why is the " + mom_in_name + " not equal to " + part[1] + " ?" )
+            
+        lab1 = 'part' + str(n+1)
+        momlab = 'k' + str(n+1)
+        newparts[lab1] = partname
+        newparts[momlab] = partmom
+    
+    return newparts
+
+def split_redstar_key_3p(string):
+    """ Go from a key to particle names, momenta, and target irrep/momentum"""
+    # string format is: XXflav1_proj#_pnml_Hlirrep__mom1xxflav2_proj#_pnml_Hlirrep__mom2__tF,embF_tirrep,embi__momtXXflav3_proj#_pnml_Hlirrep__mom1__tF,embF_tirrep,embi__momt
+    first_pieces = string.split('XX')
+    string_pieces = first_pieces[1].split('xx')
+    string_pieces.append(first_pieces[2])
+
+    # string_pieces: [flav1_proj#_pnml_Hlirrep__mom1, flav2_proj#_pnml_Hlirrep__mom2__tF,embF_tirrep,embi__momt, flav3_proj#_pnml_Hlirrep__mom1__tF,embF_tirrep,embi__momt]
+    if len(string_pieces) != 3:
+        raise Exception("This key does not have 3 particles: " + string)
+
+    # We know the first particle is given before the xx's
+    part1 = string_pieces[0].split('__')
+    # part1: [flav1_proj#_pnml_Hlirrep, mom1]
+    
+    remaining_pieces = string_pieces[1].split('__')
+    # remaining_pieces: [flav2_proj#_pnml_Hlirrep, mom2, tF,embF_tirrep,embi, momt]
+    
+    # The second particle and its momentum begin immediately
+    part2 = remaining_pieces[0:2]
+    # part2: [flav2_proj#_pnml_Hlirrep, mom2]
+
+    remaining_pieces = string_pieces[2].split('__')
+    # remaining_pieces: [flav2_proj#_pnml_Hlirrep, mom2, tF,embF_tirrep,embi, momt]
+    
+    # The second particle and its momentum begin immediately
+    part3 = remaining_pieces[0:2]
+    # part2: [flav2_proj#_pnml_Hlirrep, mom2]
+    
+    # We do not care about the flavor, but only about the target irrep
+    targetirrep = remaining_pieces[2].split('_')[1].split(',')[0]
+    # irrep: (tF,embF_tirrep,embi) -> [tF,embF, tirrep,embi] -> tirrep
+    
+    targetmom = remaining_pieces[-1]
+    
+    # Strip irrep and momentum from particle key
+    
+    parts = [part1, part2, part3]
+    newparts = dict()
+    for n, part in enumerate(parts):
+        # [flav_proj#_pnml_Hlirrep, mom]
+        if len(part) < 2:
+            print(part)
+            Exception('Why dont I have momentum?')
+
+        if part[1] == '000': #we dont use helicity for states at rest
+            fullname = part[0][:-3]
+        else:
+            # Use the helicity to get rid of irrep
+            fullname = part[0].split('_H')[0]
+
+        # fullname: flav_proj#_pnml
+        
+        partname = fullname[:-5]
+        mom_in_name = fullname[-3:]
+
+        # partname: flav_proj#
+        # mom_in_name: nml
+
+        # Compare reference momentum
+        mom_type = np.abs(label2vec(part[1]))
+        mom_type.sort()
+        mom_type = vec2label(mom_type)
+
+        mom_in_name = label2vec(mom_in_name)
+        mom_in_name.sort()
+        mom_in_name = vec2label(mom_in_name)
+
+        
+        if mom_in_name == mom_type:
+            # No surprise here
+            partmom = mom_in_name
+        else:
+            print(string, part)
             raise Exception("Why is the " + mom_in_name + " not equal to " + part[1] + " ?" )
             
         lab1 = 'part' + str(n+1)
@@ -432,9 +551,38 @@ def read_redstar_file(filename):
 
             target, strparticles = line.split('  ')
 
-            target = target[:-1] #drop G-parity
+            if target[-1] in ['M','P']:
+                target = target[:-1] #drop G-parity
 
             particles = split_redstar_key(strparticles.rstrip())
+
+            if target in two_mesons:
+                two_mesons[target].append(particles)
+            else:
+                two_mesons[target] = [particles]
+
+    return two_mesons
+
+def read_redstar_file_3p(filename):
+    """ Read a 3 particle spectrum file generated by redstar """
+
+    two_mesons = dict()
+
+    with open(filename, 'r') as f:
+        # Fill this list with all our operators
+
+
+        for line in f:
+
+            # Skip lines with not even a target
+            if len(line) < 8 : continue 
+
+            vol, target, ecm, elab, strparticles = line.split()
+
+            if target[-1] in ['M','P']:
+                target = target[:-1] #drop G-parity
+
+            particles = split_redstar_key_3p(strparticles.rstrip())
 
             if target in two_mesons:
                 two_mesons[target].append(particles)
@@ -485,7 +633,7 @@ def read_free_spectrum_scatdevel(filename):
 
 
             splitted = line.split()
-            
+
             if len(splitted) == 0: #ignore empty lines
                 continue
             
