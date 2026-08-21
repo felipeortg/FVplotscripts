@@ -39,6 +39,7 @@ energyrangep = None
 energyrangemp = None
 
 free_file_red = None
+free_file_red_3p = None
 
 free_file_sca = None
 
@@ -48,7 +49,7 @@ def init_lattice_props(lattname):
     # particles
     global masses,names,thresholdsm,thresholdsp,thresholdsmp,extrathresholdsm,extrathresholdsp,extrathresholdsmp
     # Lattice
-    global LatticeLength,chi,xi,nus,at,Lrange,colors,free_file_sca,free_file_red
+    global LatticeLength,chi,xi,nus,at,Lrange,colors,free_file_sca,free_file_red,free_file_red_3p
     # Plots
     global energyrangem, energyrangep, energyrangemp, errorbarwidth
 
@@ -452,7 +453,7 @@ def init_lattice_props(lattname):
         free_file_sca = drive_loc + 'Documents/JLab/time_like_form_factor/self notes/free_levels/a850/free_levels_scattering_devel_mod_24.txt'
 
     # Parameters of the a_860 lattice
-    elif lattname[-10:] == 'a860_IG_1p':
+    elif 'a860' in lattname.split('_'):
 
 
         # from of https://arxiv.org/pdf/1507.02599.pdf
@@ -460,15 +461,20 @@ def init_lattice_props(lattname):
         mkaon = 0.08344
         meta = 0.09299
 
+        # from https://arxiv.org/abs/1610.01073
+        mDmeson = 0.30923
+        mDstar = 0.33058
+
+        volume = lattname.split('_a860')[0]
 
         try:
-            LatticeLength = int(lattname[:-11])
+            LatticeLength = int(volume)
             if not (LatticeLength in [24, 32]):
                 raise Exception('This volume: {0}, was not added'.format(LatticeLength))
 
             Lrange = [LatticeLength-4,LatticeLength+4]
         except:
-            if lattname[:-11] == '24_32':
+            if volume == '24_32':
                 LatticeLength = 28
             else:
                 raise Exception('This volume: {0}, was not added'.format(lattname[:-9]))
@@ -482,9 +488,14 @@ def init_lattice_props(lattname):
             'pion_proj0' : {'mass' : mpion, 'name' : r'\pi{}'},
             'Kneg_proj0' : {'mass' : mkaon, 'name' : r'K'},
             'Kbarneg_proj0' : {'mass' : mkaon, 'name' : r'\overline{K}'},
+            'Dneg_proj0' :{'mass' : mDmeson, 'name' : r'D'},
+            'Dneg_proj1' :{'mass' : mDstar, 'name' : r'D^{\ast}'},
             'pi' : {'mass' : mpion, 'name' : r'\pi{}'},
             'kaon' : {'mass' : mkaon, 'name' : r'K'},
             'kbar' : {'mass' : mkaon, 'name' : r'\overline{K}'},
+            'D' :{'mass' : mDmeson, 'name' : r'D'},
+            'Dstar' :{'mass' : mDstar, 'name' : r'D^{\ast}'},
+            
         }
 
         masses = dict()
@@ -498,37 +509,72 @@ def init_lattice_props(lattname):
             'pion_proj0xxpion_proj0' : 'blue',
             'Kneg_proj0xxKbarneg_proj0' : 'red',
             'Kbarneg_proj0xxKneg_proj0' : 'red',
+            'Dneg_proj0xxDneg_proj1' : 'blue',
+            'Dneg_proj1xxDneg_proj1' : 'red',
             'pixxpi' : 'blue',
             'kaonxxkbar' : 'red',
             'kbarxxkaon' : 'red',
+            'DxxDstar' : 'blue',
+            'DstarxxDstar' : 'red',
         }
 
+        if lattname[7:] == '_IG_1p':
+            thresholdsm = ['pixxpi','kaonxxkbar']
+            thresholdsp = []
+            thresholdsmp = thresholdsm
 
-        thresholdsm = ['pixxpi','kaonxxkbar']
-        thresholdsp = []
-        thresholdsmp = thresholdsm
+            ls_types = ['solid', 'dotted', 'dashdot', (0, (3, 1, 1, 1, 1, 1))]
 
-        ls_types = ['solid', 'dotted', 'dashdot', (0, (3, 1, 1, 1, 1, 1))]
-
-        extrathresholdsm = [[4*mpion, ls_types[2], 'green', r'$\pi\pi \pi\pi$' ]]
-        extrathresholdsp = extrathresholdsm
-        extrathresholdsmp = extrathresholdsm
-
-
-        linestyles_types = ['solid', 'dotted', 'dashdot', (0, (3, 1, 1, 1, 1, 1))]
-
-        
-
-        energyrangem = [0.07,0.17]
-        energyrangep = [0.2,0.3]
-        energyrangemp = [0.07,0.17]
+            extrathresholdsm = [[4*mpion, ls_types[2], 'green', r'$\pi\pi \pi\pi$' ]]
+            extrathresholdsp = extrathresholdsm
+            extrathresholdsmp = extrathresholdsm
 
 
-        errorbarwidth = 0.8
+            linestyles_types = ['solid', 'dotted', 'dashdot', (0, (3, 1, 1, 1, 1, 1))]
 
-        free_file_red = None
+            
 
-        free_file_sca = drive_loc + 'Documents/JLab/rhoformfactor/kinematic region per lattice/interacting_levels/860/free_levels_scattering_devel_mod.txt'
+            energyrangem = [0.07,0.17]
+            energyrangep = [0.2,0.3]
+            energyrangemp = [0.07,0.17]
+
+
+            errorbarwidth = 0.8
+
+            free_file_red = None
+
+            free_file_sca = drive_loc + 'Documents/JLab/rhoformfactor/kinematic region per lattice/interacting_levels/860/free_levels_scattering_devel_mod.txt'
+
+        elif lattname.split('_a860')[1] == '_I_0_c_2':
+
+            LatticeLength = 32
+
+            thresholdsm = ['DxxDstar','DstarxxDstar']
+            thresholdsp = thresholdsm
+            thresholdsmp = thresholdsm
+
+            ls_types = ['solid', 'dotted', 'dashdot', (0, (3, 1, 1, 1, 1, 1))]
+
+            extrathresholdsm = [[mpion+2*mDmeson, ls_types[2], 'green', r'$DD\pi$' ]]
+            extrathresholdsp = extrathresholdsm
+            extrathresholdsmp = extrathresholdsm
+
+
+            linestyles_types = ['solid', 'dotted', 'dashdot', (0, (3, 1, 1, 1, 1, 1))]
+
+            
+
+            energyrangem = [0.63,0.68]
+            energyrangep = [0.63,0.68]
+            energyrangemp = [0.63,0.68]
+
+
+            errorbarwidth = 0.8
+
+            free_file_red = drive_loc + 'Documents/JLab/Tcc_w_lhc/scattering_860/free_levels/free_levels_redstar.list'
+            free_file_red_3p = drive_loc + 'Documents/JLab/Tcc_w_lhc/scattering_860/free_levels/free_levels_redstar_3p.list'
+
+            free_file_sca = drive_loc + 'Documents/JLab/Tcc_w_lhc/scattering_860/free_levels/free_levels_scattering_devel_mod.txt'
     else:
         errorflag = True
 
@@ -546,6 +592,7 @@ def init_lattice_props(lattname):
     24_a850_IG_1p
     LL_a860_IG_1p
     24_32_a860_IG_1p
+    24_32_a860_I_0_c_2
     """)
         raise Exception('From errorflag: this lattice properties are not in here')
 
