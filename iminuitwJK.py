@@ -1414,7 +1414,7 @@ def generate_ax_file(xd, yd, fit, model,
     x_inactive = xd[mask_inactive]
     y_inactive_me = None
     if len(x_inactive) > 0:
-        y_inactive_me = calc(yd_fac[:,mask_inactive])
+        y_inactive_me = np.transpose(calc(yd_fac[:,mask_inactive]))
 
     # Setup Line Model Plots (the continuous curves)
     # Typically, we plot the mean, and mean +/- error lines
@@ -1423,7 +1423,7 @@ def generate_ax_file(xd, yd, fit, model,
     if sum(mask) == len(xd):
         x_smooth = np.linspace(min(xd)-0.5, max(xd)+0.5, 221)
     else:
-        x_smooth = np.linspace(min(xd), max(xd), 221)
+        x_smooth = np.linspace(min(xd)-0.5, max(xd)+0.5, 221)
     
     # Get model ensemble to calculate bands
     # get_line_model should return [mean, err] or similar based on your provided signature
