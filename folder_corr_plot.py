@@ -76,11 +76,11 @@ data_df["ecm"] = ecm_me[:,0]
 data_df["data"] = data_me[:,0]
 data_df["data_err"] = data_me[:,1]
 data_df["data_perr"] = mJK.np.abs(data_df["data_err"]/data_df["data"])*100
-data_df["x_labels"] = data_df["irrep"] + "\#" + data_df["lvl"].apply(str)
+data_df["x_labels"] = data_df["irrep"] + r"\#" + data_df["lvl"].apply(str)
 
 label_df = data_df.sort_values('ecm')
 dataord = list(label_df.index)
-dataordirrep = list(label_df["irrep"] + "\#" + label_df["lvl"].apply(str))
+dataordirrep = list(label_df["irrep"] + r"\#" + label_df["lvl"].apply(str))
 
 
 temp = []
@@ -122,7 +122,7 @@ mJK.plt.savefig(f"{datafolder}/corr_svd.pdf", transparent=True, bbox_inches='tig
 
 #plot percentage error
 fig,ax = mJK.plt.subplots(1,1,num=3,figsize=(8,3))
-label_df.plot(x="x_labels", y="data_perr", ax=ax, ls='', marker='o',color='k', mfc='w', label="\% error")
+label_df.plot(x="x_labels", y="data_perr", ax=ax, ls='', marker='o',color='k', mfc='w', label=r"\% error")
 
 
 # ax.set_ylim([0,1.4])
