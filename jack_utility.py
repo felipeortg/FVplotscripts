@@ -1072,7 +1072,7 @@ def correlation_plot(ax, xd, corr, label_all=False):
 
     return out
 
-def plot_data(ax, xd, yd, yerr, nn, **kwargs):
+def plot_data(ax, xd, yd, yerr, nn, marker='s', **kwargs):
     """
     A helper function to make a graph
 
@@ -1104,7 +1104,7 @@ def plot_data(ax, xd, yd, yerr, nn, **kwargs):
 
     out = ax.errorbar(xd, yd, yerr,
                  ls='', c = 'C'+str(nn),
-                 marker='s',mfc='w',#fillstyle='none',
+                 marker=marker, mfc='w',#fillstyle='none',
                  ms=4, 
                  elinewidth=1, capsize=3.5, **kwargs)
     return out
