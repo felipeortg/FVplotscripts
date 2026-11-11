@@ -3,6 +3,8 @@
 # @Date    : 2021-09-2 12:04:18
 # @Author  : Felipe G. Ortega-Gama (felipeortegagama@gmail.com)
 
+import numpy as np
+
 drive_loc = '/Users/felortga/Google Drive/My Drive/'
 
 LatticeLength = None
@@ -548,6 +550,7 @@ def init_lattice_props(lattname):
         elif lattname.split('_a860')[1] == '_I_0_c_2':
 
             LatticeLength = 32
+            Lrange = [LatticeLength-8,LatticeLength+8]
 
             thresholdsm = ['DxxDstar','DstarxxDstar']
             thresholdsp = thresholdsm
@@ -555,7 +558,8 @@ def init_lattice_props(lattname):
 
             ls_types = ['solid', 'dotted', 'dashdot', (0, (3, 1, 1, 1, 1, 1))]
 
-            extrathresholdsm = [[mpion+2*mDmeson, ls_types[2], 'green', r'$DD\pi$' ]]
+            extrathresholdsm = [[mpion+2*mDmeson, ls_types[2], 'green', r'$DD\pi$' ],
+                                [np.sqrt(2*(mDmeson**2 + mDstar**2) - mpion**2), ls_types[1], 'grey', r'$DD^\star|_{\pi\text{-lhc}}$']]
             extrathresholdsp = extrathresholdsm
             extrathresholdsmp = extrathresholdsm
 
@@ -592,7 +596,7 @@ def init_lattice_props(lattname):
     24_a850_IG_1p
     LL_a860_IG_1p
     24_32_a860_IG_1p
-    24_32_a860_I_0_c_2
+    32_a860_I_0_c_2
     """)
         raise Exception('From errorflag: this lattice properties are not in here')
 
